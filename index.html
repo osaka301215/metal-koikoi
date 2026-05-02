@@ -862,6 +862,35 @@ aside h2 {
   </div>
 </div>
 
+<!-- スタート画面 -->
+<div class="modal-overlay active" id="startScreen" style="background: var(--bg-deep);">
+  <div style="text-align: center; max-width: 500px; width: 90%;">
+    <div style="font-family: 'Shippori Mincho', serif; font-size: 2.5rem; color: var(--gold-bright); letter-spacing: 0.3em; margin-bottom: 8px; font-weight: 700;">
+      金 屬 イオン
+    </div>
+    <div style="font-family: 'Shippori Mincho', serif; font-size: 2rem; color: var(--vermilion); letter-spacing: 0.3em; margin-bottom: 24px;">
+      こ い こ い
+    </div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--gold); letter-spacing: 0.3em; opacity: 0.7; margin-bottom: 40px;">
+      METAL ION KOI-KOI
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 12px; max-width: 320px; margin: 0 auto;">
+      <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em;" onclick="startGame('pvp')">
+        2人対戦（同じ画面）
+      </button>
+      <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em; background: var(--moss); border-color: var(--moss);" onclick="startGame('cpu')">
+        CPU対戦
+      </button>
+      <button style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em;" disabled title="今後実装予定">
+        オンライン対戦（準備中）
+      </button>
+    </div>
+    <div style="margin-top: 32px;">
+      <button onclick="toggleHelp()" style="font-size: 0.85rem;">遊び方</button>
+    </div>
+  </div>
+</div>
+
 <div class="app">
   <header>
     <h1>金 屬 イオン <span class="accent">こいこい</span></h1>
@@ -936,7 +965,8 @@ aside h2 {
     <div class="message-log" id="messageLog">ゲームを開始します。</div>
 
     <div class="controls">
-      <button onclick="newGame()" class="danger">新しいゲーム</button>
+      <button onclick="backToMenu()" class="danger">メニューに戻る</button>
+      <button onclick="newGame()">新しいゲーム</button>
       <button onclick="toggleRoleList()">役一覧</button>
       <button onclick="toggleHelp()">遊び方</button>
       <button onclick="switchViewpoint()" id="viewpointBtn" style="border-color: var(--vermilion); color: var(--vermilion);">視点切替（テスト用）</button>
@@ -1059,6 +1089,40 @@ function newPlayer() {
 // 実際のオンライン対戦では、ルーム参加時に決まる
 let myPlayerIndex = 0;
 
+// ゲームモード： 'pvp' | 'cpu' | 'online'
+let gameMode = 'pvp';
+
+// ゲーム開始（メニューから呼ばれる）
+function startGame(mode) {
+  gameMode = mode;
+  myPlayerIndex = 0;
+  
+  // メニュー画面を閉じる
+  document.getElementById('startScreen').classList.remove('active');
+  
+  // CPU対戦時は視点切替ボタンを隠す
+  const vpBtn = document.getElementById('viewpointBtn');
+  if (vpBtn) {
+    vpBtn.style.display = (mode === 'cpu') ? 'none' : '';
+  }
+  
+  newGame();
+}
+
+// メニューに戻る
+function backToMenu() {
+  // 進行中のCPU処理タイマーをキャンセル
+  if (cpuActionTimer) {
+    clearTimeout(cpuActionTimer);
+    cpuActionTimer = null;
+  }
+  
+  hideModal('placeModal');
+  hideModal('roleModal');
+  hideModal('endModal');
+  document.getElementById('startScreen').classList.add('active');
+}
+
 function newGame() {
   const deck = shuffle(createDeck());
   state = {
@@ -1093,6 +1157,9 @@ function newGame() {
   
   log('ゲーム開始。一の人の番です。');
   render();
+  
+  // CPUの手番ならCPUを起動
+  scheduleCpuTurnIfNeeded();
 }
 
 // ============================================================
@@ -1872,6 +1939,9 @@ function endTurn() {
   state.selectedHandCard = null;
   log(`${state.currentPlayer === 0 ? '一' : '二'}の人の番です。`);
   render();
+  
+  // CPUの手番ならCPUを起動
+  scheduleCpuTurnIfNeeded();
 }
 
 function endRound(reason) {
@@ -1910,6 +1980,261 @@ function showEndScreen(title, result) {
   });
   
   showModal('endModal');
+}
+
+// ============================================================
+// CPU AI（ランダム判断）
+// ============================================================
+let cpuActionTimer = null;
+const CPU_ACTION_DELAY = 800; // CPU の各操作の間隔(ms)
+
+// CPU の手番なら起動。手番でなければ何もしない
+function scheduleCpuTurnIfNeeded() {
+  if (gameMode !== 'cpu') return;
+  if (state.gameOver) return;
+  
+  // CPU はプレイヤー1（インデックス1）固定。state.currentPlayer === 1 の時に動く
+  if (state.currentPlayer !== 1) return;
+  
+  // すでにタイマー走ってたらキャンセル
+  if (cpuActionTimer) clearTimeout(cpuActionTimer);
+  
+  // 一定時間後にCPUの手を打つ
+  cpuActionTimer = setTimeout(() => {
+    cpuActionTimer = null;
+    cpuPlayHand();
+  }, CPU_ACTION_DELAY);
+}
+
+// CPU：手札から1枚ランダム選択 → 場とのマッチを処理
+function cpuPlayHand() {
+  if (gameMode !== 'cpu' || state.currentPlayer !== 1 || state.gameOver) return;
+  if (state.phase !== 'play_hand') return;
+  
+  const cpu = state.players[1];
+  if (cpu.hand.length === 0) {
+    endTurn();
+    return;
+  }
+  
+  // ランダムに手札を1枚選ぶ
+  const handCard = cpu.hand[Math.floor(Math.random() * cpu.hand.length)];
+  log(`CPU: ${handCard.symbol} を出します。`);
+  
+  // 場とのマッチをチェック
+  const matches = findMatches(handCard, state.field);
+  
+  if (matches.length === 0) {
+    // 場に置く
+    cpu.hand = cpu.hand.filter(c => c.id !== handCard.id);
+    state.field.push(handCard);
+    log(`CPU: ${handCard.symbol} を場に置きました。`);
+    render();
+    
+    cpuActionTimer = setTimeout(() => {
+      cpuActionTimer = null;
+      cpuDrawFromDeck();
+    }, CPU_ACTION_DELAY);
+  } else {
+    // マッチあり → ランダムに1枚選んで取る
+    const fieldCard = matches[Math.floor(Math.random() * matches.length)];
+    cpu.hand = cpu.hand.filter(c => c.id !== handCard.id);
+    state.field = state.field.filter(c => c.id !== fieldCard.id);
+    state.pendingCaptures.push(handCard, fieldCard);
+    log(`CPU: ${handCard.symbol} で場の ${fieldCard.symbol} を取りました。`);
+    render();
+    
+    cpuActionTimer = setTimeout(() => {
+      cpuActionTimer = null;
+      cpuDrawFromDeck();
+    }, CPU_ACTION_DELAY);
+  }
+}
+
+// CPU：山札からめくる
+function cpuDrawFromDeck() {
+  if (gameMode !== 'cpu' || state.currentPlayer !== 1 || state.gameOver) return;
+  
+  if (state.deck.length === 0) {
+    cpuFinishCaptures();
+    return;
+  }
+  
+  const drawn = state.deck.pop();
+  state.drawnCard = drawn;
+  const matches = findMatches(drawn, state.field);
+  log(`CPU: 山札から ${drawn.symbol}。`);
+  render();
+  
+  cpuActionTimer = setTimeout(() => {
+    cpuActionTimer = null;
+    if (matches.length === 0) {
+      // 場に置く
+      state.field.push(drawn);
+      state.drawnCard = null;
+      log(`CPU: ${drawn.symbol} を場に置きました。`);
+      render();
+      cpuActionTimer = setTimeout(() => {
+        cpuActionTimer = null;
+        cpuFinishCaptures();
+      }, CPU_ACTION_DELAY);
+    } else {
+      // ランダムに取る
+      const fieldCard = matches[Math.floor(Math.random() * matches.length)];
+      state.field = state.field.filter(c => c.id !== fieldCard.id);
+      state.pendingCaptures.push(drawn, fieldCard);
+      state.drawnCard = null;
+      log(`CPU: 山札の ${drawn.symbol} で場の ${fieldCard.symbol} を取りました。`);
+      render();
+      cpuActionTimer = setTimeout(() => {
+        cpuActionTimer = null;
+        cpuFinishCaptures();
+      }, CPU_ACTION_DELAY);
+    }
+  }, 1000);
+}
+
+// CPU：取った札の配置（モーダルの代わりにロジックで処理）
+function cpuFinishCaptures() {
+  if (gameMode !== 'cpu' || state.currentPlayer !== 1 || state.gameOver) return;
+  
+  // 場札補充
+  refillFieldIfNeeded();
+  
+  const cpu = state.players[1];
+  const captures = [...state.pendingCaptures];
+  const pendings = [...cpu.pending];
+  
+  // 配置候補を作成（取得札+ペンディング札それぞれについて、配置可能な役の候補）
+  // 「役に置くのは2枚まで」制限を考慮しつつランダムに配置
+  
+  // まずペンディングをリセット
+  cpu.pending = [];
+  
+  // 全候補札のリスト（取得+ペンディング）
+  const allCards = [...captures, ...pendings];
+  
+  // ランダムに2枚を選んで「役に配置試行」
+  const shuffled = [...allCards].sort(() => Math.random() - 0.5);
+  let placedCount = 0;
+  const placedSet = new Set();
+  
+  for (const card of shuffled) {
+    if (placedCount >= PLACE_LIMIT_PER_TURN) break;
+    
+    const placeable = getPlaceableRoles(cpu, card);
+    if (placeable.length === 0) continue;
+    
+    // ランダムに役を選ぶ
+    const role = placeable[Math.floor(Math.random() * placeable.length)];
+    placeCardInSlot(cpu, card, role.id);
+    placedSet.add(card.id);
+    placedCount++;
+    log(`CPU: ${card.symbol} を「${role.name}」に配置。`);
+  }
+  
+  // 残りはペンディングへ
+  for (const card of allCards) {
+    if (!placedSet.has(card.id)) {
+      cpu.pending.push(card);
+    }
+  }
+  
+  state.pendingCaptures = [];
+  render();
+  
+  cpuActionTimer = setTimeout(() => {
+    cpuActionTimer = null;
+    cpuCheckRoles();
+  }, CPU_ACTION_DELAY);
+}
+
+// CPU：役の成立判定と上がり/こいこい判断
+function cpuCheckRoles() {
+  if (gameMode !== 'cpu' || state.currentPlayer !== 1 || state.gameOver) return;
+  
+  const cpu = state.players[1];
+  const newRoles = [];
+  
+  for (const role of ROLES) {
+    if (cpu.completedRoles.includes(role.id) && !role.extensible) continue;
+    if (!hasSlot(cpu, role.id)) continue;
+    
+    if (role.extensible) {
+      const progress = slotProgress(cpu, role.id);
+      if (progress.filled < 3) continue;
+      const wasCompleted = cpu.completedRoles.includes(role.id);
+      if (!wasCompleted) {
+        newRoles.push({ role, mode: 'new', currentPoints: getRoleCurrentPoints(cpu, role.id) });
+      } else {
+        if (progress.filled === 6 && !cpu.completedRoles.includes(role.id + '_full')) {
+          newRoles.push({ role, mode: 'upgrade', currentPoints: role.completePoints });
+        }
+      }
+    } else {
+      if (isSlotComplete(cpu, role.id)) {
+        newRoles.push({ role, mode: 'new', currentPoints: role.points });
+      }
+    }
+  }
+  
+  if (newRoles.length === 0) {
+    // 役なし、ターン終了
+    endTurn();
+    return;
+  }
+  
+  // 役成立 → 上がり or こいこい をランダム判断
+  const totalPoints = newRoles.reduce((sum, e) => {
+    if (e.mode === 'upgrade') return sum + (e.currentPoints - e.role.points);
+    return sum + e.currentPoints;
+  }, 0);
+  
+  // 5点未満なら必ずこいこい
+  // 5点以上なら 50% 上がり、50% こいこい（ランダム判断）
+  const canAgari = totalPoints >= 5;
+  const willAgari = canAgari && Math.random() < 0.5;
+  
+  if (willAgari) {
+    // 上がり処理
+    let points = 0;
+    const announcedNames = [];
+    for (const entry of newRoles) {
+      if (entry.mode === 'upgrade') {
+        points += (entry.currentPoints - entry.role.points);
+        cpu.completedRoles.push(entry.role.id + '_full');
+        announcedNames.push(entry.role.name + '（完全）');
+      } else {
+        points += entry.currentPoints;
+        cpu.completedRoles.push(entry.role.id);
+        announcedNames.push(entry.role.name);
+      }
+    }
+    let bonusText = '';
+    if (cpu.koikoiCount > 0) {
+      const bonus = cpu.koikoiCount * KOIKOI_BONUS_PER_COUNT;
+      points += bonus;
+      bonusText = `（こいこい${cpu.koikoiCount}回 +${bonus}点）`;
+    }
+    cpu.score += points;
+    log(`CPU: ${announcedNames.join('、')} ${bonusText} で上がり！${points}点`);
+    showEndScreen(`CPUの上がり！`, `${announcedNames.join('、')} ${bonusText} で ${points}点`);
+  } else {
+    // こいこい処理
+    for (const entry of newRoles) {
+      if (entry.mode === 'upgrade') {
+        cpu.completedRoles.push(entry.role.id + '_full');
+      } else {
+        cpu.completedRoles.push(entry.role.id);
+      }
+    }
+    cpu.koikoi = true;
+    cpu.koikoiCount += 1;
+    const names = newRoles.map(e => e.role.name + (e.mode === 'upgrade' ? '（完全）' : '')).join('、');
+    log(`CPU: ${names} 確定。こいこい！(${cpu.koikoiCount}回目)`);
+    showKoikoiBanner();
+    endTurn();
+  }
 }
 
 // ============================================================
@@ -2008,7 +2333,9 @@ function render() {
   
   // プレイヤー名
   document.getElementById('selfName').textContent = `自分（${myPlayerIndex === 0 ? '一の人' : '二の人'}）`;
-  document.getElementById('opponentName').textContent = `相手（${oppIdx === 0 ? '一の人' : '二の人'}）`;
+  document.getElementById('opponentName').textContent = gameMode === 'cpu' 
+    ? 'CPU' 
+    : `相手（${oppIdx === 0 ? '一の人' : '二の人'}）`;
   
   // 自分の手札（表向き、操作可能）
   const selfHand = document.getElementById('selfHand');
@@ -2128,7 +2455,7 @@ function render() {
   } else if (isOppTurn) {
     const info = document.createElement('span');
     info.className = 'action-info';
-    info.textContent = '相手の手番です。お待ちください...';
+    info.textContent = gameMode === 'cpu' ? 'CPUが考えています...' : '相手の手番です。お待ちください...';
     actionBar.appendChild(info);
   }
   
@@ -2219,7 +2546,19 @@ function toggleHelp() {
   );
 }
 
-newGame();
+// 起動時はメニュー画面を表示するのみ（newGameはメニューから呼ばれる）
+// 内部状態を最初に整えるため、空のゲーム状態だけは作っておく
+state = {
+  deck: [],
+  field: [],
+  players: [newPlayer(), newPlayer()],
+  currentPlayer: 0,
+  selectedHandCard: null,
+  phase: 'play_hand',
+  drawnCard: null,
+  pendingCaptures: [],
+  gameOver: false,
+};
 </script>
 </body>
 </html>
