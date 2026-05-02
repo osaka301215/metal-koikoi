@@ -1085,6 +1085,12 @@ function newGame() {
   hideModal('placeModal');
   hideModal('roleModal');
   hideModal('endModal');
+  
+  // 役モーダル関連の状態もリセット
+  pendingNewRoles = [];
+  selectedRoleIds = [];
+  placeModalState = null;
+  
   log('ゲーム開始。一の人の番です。');
   render();
 }
@@ -1782,6 +1788,10 @@ function confirmAgari() {
   player.score += points;
   hideModal('roleModal');
   
+  // 処理完了：保留中の役リストをクリア
+  pendingNewRoles = [];
+  selectedRoleIds = [];
+  
   const playerName = state.currentPlayer === 0 ? '一の人' : '二の人';
   showEndScreen(`${playerName}の上がり！`, `${announcedNames.join('、')} ${bonusText} で ${points}点`);
 }
@@ -1810,6 +1820,10 @@ function confirmKoikoi() {
     .map(e => e.role.name + (e.mode === 'upgrade' ? '（完全）' : ''))
     .join('、');
   log(`${names} 確定。こいこい！(${player.koikoiCount}回目, 上がり時+${player.koikoiCount * KOIKOI_BONUS_PER_COUNT}点)`);
+  
+  // 処理完了：保留中の役リストをクリア（次回視点切替時に誤って開かないように）
+  pendingNewRoles = [];
+  selectedRoleIds = [];
   
   setTimeout(() => endTurn(), 1500);
 }
