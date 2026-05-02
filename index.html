@@ -35,16 +35,17 @@ body {
     radial-gradient(circle at 80% 70%, rgba(201, 169, 97, 0.08) 0%, transparent 50%);
   color: var(--bg-card);
   min-height: 100vh;
-  padding: 16px;
+  padding: 8px;
   overflow-x: hidden;
+  font-size: 14px;
 }
 
 .app {
   max-width: 1400px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 20px;
+  grid-template-columns: 1fr 260px;
+  gap: 12px;
 }
 
 @media (max-width: 1024px) {
@@ -54,7 +55,7 @@ body {
 header {
   grid-column: 1 / -1;
   text-align: center;
-  padding: 20px 0;
+  padding: 8px 0;
   border-bottom: 1px solid var(--gold);
   position: relative;
 }
@@ -65,7 +66,7 @@ header::before {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 8rem;
+  font-size: 5rem;
   color: rgba(201, 169, 97, 0.04);
   letter-spacing: 1rem;
   font-weight: 800;
@@ -74,37 +75,35 @@ header::before {
 }
 
 h1 {
-  font-size: 2.2rem;
+  font-size: 1.4rem;
   font-weight: 700;
   letter-spacing: 0.3em;
   color: var(--gold-bright);
   position: relative;
 }
 
-h1 .accent {
-  color: var(--vermilion);
-}
+h1 .accent { color: var(--vermilion); }
 
 .subtitle {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   color: var(--gold);
   opacity: 0.6;
   letter-spacing: 0.4em;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 main {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
 }
 
 .player-area {
   background: linear-gradient(135deg, var(--bg-mid) 0%, #1f1612 100%);
   border: 1px solid rgba(201, 169, 97, 0.2);
   border-radius: 4px;
-  padding: 16px;
+  padding: 8px 12px;
   position: relative;
 }
 
@@ -130,16 +129,17 @@ main {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-  font-size: 0.9rem;
+  margin-bottom: 6px;
+  font-size: 0.8rem;
   color: var(--gold);
   letter-spacing: 0.2em;
 }
 
 .score-badge {
   font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
   background: var(--bg-deep);
-  padding: 4px 12px;
+  padding: 3px 8px;
   border: 1px solid var(--gold);
   border-radius: 2px;
 }
@@ -147,28 +147,28 @@ main {
 .player-body {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: 6px;
 }
 
 .section-label {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   letter-spacing: 0.3em;
   color: var(--gold);
   opacity: 0.7;
-  margin-bottom: 6px;
+  margin-bottom: 3px;
 }
 
 .cards {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  min-height: 100px;
+  gap: 4px;
+  min-height: 75px;
 }
 
 .cards-pending {
-  min-height: 80px;
+  min-height: 55px;
   border: 1px dashed rgba(201, 169, 97, 0.3);
-  padding: 8px;
+  padding: 4px;
   border-radius: 3px;
 }
 
@@ -183,8 +183,21 @@ main {
   background: linear-gradient(180deg, #243b27 0%, #1a2a1c 100%);
   border: 2px solid var(--moss);
   border-radius: 4px;
-  padding: 20px;
+  padding: 10px 12px;
   position: relative;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.field-divider {
+  width: 1px;
+  align-self: stretch;
+  background: rgba(201, 169, 97, 0.3);
+  margin: 4px 0;
 }
 
 .field-area::before {
@@ -212,8 +225,8 @@ main {
 }
 
 .card {
-  width: 64px;
-  height: 96px;
+  width: 48px;
+  height: 70px;
   background: var(--bg-card);
   background-image: 
     linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%),
@@ -267,24 +280,24 @@ main {
 }
 
 .card-symbol {
-  font-size: 1.6rem;
+  font-size: 1.2rem;
   font-weight: 700;
   letter-spacing: 0.05em;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .card-valences {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
 }
 
 .valence-tag {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   font-weight: 700;
-  padding: 1px 5px;
+  padding: 0px 4px;
   border-radius: 2px;
   letter-spacing: 0.05em;
   white-space: nowrap;
@@ -329,8 +342,8 @@ button {
   background: var(--bg-mid);
   color: var(--gold-bright);
   border: 1px solid var(--gold);
-  padding: 8px 16px;
-  font-size: 0.85rem;
+  padding: 5px 12px;
+  font-size: 0.78rem;
   letter-spacing: 0.15em;
   cursor: pointer;
   transition: all 0.2s;
@@ -367,18 +380,18 @@ aside {
   background: var(--bg-mid);
   border: 1px solid rgba(201, 169, 97, 0.2);
   border-radius: 4px;
-  padding: 16px;
+  padding: 10px;
   height: fit-content;
-  max-height: 90vh;
+  max-height: 95vh;
   overflow-y: auto;
 }
 
 aside h2 {
-  font-size: 1rem;
+  font-size: 0.85rem;
   letter-spacing: 0.3em;
   color: var(--gold-bright);
-  margin-bottom: 12px;
-  padding-bottom: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 5px;
   border-bottom: 1px solid var(--gold);
 }
 
@@ -429,33 +442,33 @@ aside h2 {
 .slots-area {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
   background: rgba(0,0,0,0.2);
   border: 1px dashed rgba(201, 169, 97, 0.3);
-  padding: 8px;
+  padding: 4px;
   border-radius: 3px;
-  min-height: 60px;
+  min-height: 30px;
 }
 
 .slots-area:empty::before {
-  content: "（まだ役を狙っていません。札を取って役のスロットへ）";
+  content: "（まだ役を狙っていません）";
   color: var(--ink-soft);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   letter-spacing: 0.05em;
   display: block;
   text-align: center;
-  padding: 12px 0;
+  padding: 6px 0;
 }
 
 .slot {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: var(--bg-deep);
-  padding: 6px 8px;
+  padding: 3px 6px;
   border: 1px solid rgba(201, 169, 97, 0.3);
   border-radius: 3px;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
 }
 
 .slot.complete {
@@ -466,27 +479,27 @@ aside h2 {
 .slot-name {
   font-weight: 600;
   color: var(--gold-bright);
-  min-width: 110px;
-  font-size: 0.8rem;
+  min-width: 90px;
+  font-size: 0.7rem;
 }
 
 .slot-mini-cards {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   flex: 1;
   flex-wrap: wrap;
 }
 
 .slot-mini-card {
-  width: 24px;
-  height: 32px;
+  width: 20px;
+  height: 26px;
   background: var(--bg-card);
   color: var(--ink);
   border-radius: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 700;
   border: 1px solid var(--bg-card-shadow);
 }
@@ -513,10 +526,10 @@ aside h2 {
 .message-log {
   background: var(--bg-deep);
   border: 1px solid rgba(201, 169, 97, 0.2);
-  padding: 12px;
+  padding: 6px 10px;
   border-radius: 4px;
-  font-size: 0.85rem;
-  min-height: 60px;
+  font-size: 0.78rem;
+  min-height: 32px;
   font-family: 'JetBrains Mono', monospace;
   color: var(--gold-bright);
   letter-spacing: 0.05em;
@@ -537,16 +550,16 @@ aside h2 {
 }
 
 .action-bar:not(:empty) {
-  min-height: 50px;
-  padding: 8px;
+  min-height: 40px;
+  padding: 6px;
   background: rgba(184, 74, 62, 0.1);
   border: 1px solid var(--vermilion);
   border-radius: 4px;
-  margin-bottom: -8px;
+  margin-bottom: -4px;
 }
 
 .action-bar .action-info {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   color: var(--gold-bright);
   letter-spacing: 0.05em;
 }
@@ -641,6 +654,63 @@ aside h2 {
 
 .modal-role.disabled:hover {
   background: var(--bg-deep);
+}
+
+.modal-elem-row {
+  display: flex;
+  gap: 4px;
+  margin: 4px 0;
+  flex-wrap: wrap;
+}
+
+.modal-elem {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 2px;
+  letter-spacing: 0.05em;
+  border: 1px solid;
+}
+
+.modal-elem.filled {
+  /* すでに役のマスに札が入っている：白文字＋背景明るめ */
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.modal-elem.empty {
+  /* まだ空きマス：グレー */
+  color: var(--ink-soft);
+  background: transparent;
+  border-color: rgba(201, 169, 97, 0.2);
+  border-style: dashed;
+}
+
+.modal-elem.incoming {
+  /* この札が入ろうとしている元素：朱でハイライト */
+  color: var(--bg-card);
+  background: var(--vermilion);
+  border-color: var(--vermilion);
+}
+
+.modal-role.selected .modal-elem.filled {
+  color: var(--bg-card);
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.modal-role.selected .modal-elem.empty {
+  color: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.modal-role.selected .modal-elem.incoming {
+  color: var(--vermilion);
+  background: var(--bg-card);
+  border-color: var(--bg-card);
 }
 
 .role-progress {
@@ -743,6 +813,31 @@ aside h2 {
 
 .opponent-hand .card-back::after { font-size: 1.4rem; }
 
+.round-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--bg-mid);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.round-btn:hover {
+  background: var(--bg-deep);
+  color: var(--gold-bright);
+}
+
+.round-btn.selected {
+  background: var(--vermilion);
+  color: var(--bg-card);
+  border-color: var(--vermilion);
+}
+
 @media (max-width: 768px) {
   .card { width: 52px; height: 78px; }
   .card-symbol { font-size: 1.3rem; }
@@ -753,44 +848,46 @@ aside h2 {
 
 .deck-stack {
   position: relative;
-  width: 64px;
-  height: 96px;
-}
-
-.deck-count {
-  position: absolute;
-  bottom: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
-  color: var(--gold);
-  white-space: nowrap;
-}
-
-.drawn-area {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  width: 48px;
+  height: 70px;
 }
 
 .drawn-label {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   color: var(--gold);
   letter-spacing: 0.2em;
   opacity: 0.7;
 }
 
 .drawn-slot {
-  width: 64px;
-  height: 96px;
+  width: 48px;
+  height: 70px;
   border: 1px dashed rgba(201, 169, 97, 0.3);
   border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+}
+
+.drawn-slot:empty::before {
+  content: "めくり";
+  color: var(--ink-soft);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.1em;
+}
+
+.deck-count {
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--gold);
+  white-space: nowrap;
 }
 
 .drawn-slot .card {
@@ -862,6 +959,30 @@ aside h2 {
   </div>
 </div>
 
+<!-- 先攻決定演出オーバーレイ -->
+<div class="modal-overlay" id="ceremonyOverlay">
+  <div style="text-align: center; max-width: 600px; width: 90%;">
+    <div id="ceremonyTitle" style="font-family: 'Shippori Mincho', serif; font-size: 1.4rem; color: var(--gold-bright); letter-spacing: 0.3em; margin-bottom: 24px;">
+      先 攻 決 定
+    </div>
+    <div id="ceremonyCards" style="display: flex; gap: 40px; justify-content: center; align-items: center;">
+      <div style="text-align: center;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 8px;" id="ceremonyLabelA">一の人</div>
+        <div id="ceremonyCardA"></div>
+      </div>
+      <div style="font-size: 1.5rem; color: var(--vermilion); font-weight: 700;">VS</div>
+      <div style="text-align: center;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 8px;" id="ceremonyLabelB">二の人</div>
+        <div id="ceremonyCardB"></div>
+      </div>
+    </div>
+    <div id="ceremonyResult" style="margin-top: 24px; font-family: 'Shippori Mincho', serif; font-size: 1.1rem; color: var(--vermilion); letter-spacing: 0.2em; min-height: 30px; font-weight: 700;"></div>
+    <div style="margin-top: 16px;">
+      <button onclick="skipCeremony()" style="font-size: 0.75rem;">スキップ</button>
+    </div>
+  </div>
+</div>
+
 <!-- スタート画面 -->
 <div class="modal-overlay active" id="startScreen" style="background: var(--bg-deep);">
   <div style="text-align: center; max-width: 500px; width: 90%;">
@@ -871,9 +992,23 @@ aside h2 {
     <div style="font-family: 'Shippori Mincho', serif; font-size: 2rem; color: var(--vermilion); letter-spacing: 0.3em; margin-bottom: 24px;">
       こ い こ い
     </div>
-    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--gold); letter-spacing: 0.3em; opacity: 0.7; margin-bottom: 40px;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--gold); letter-spacing: 0.3em; opacity: 0.7; margin-bottom: 32px;">
       METAL ION KOI-KOI
     </div>
+    
+    <div style="margin-bottom: 24px;">
+      <div style="font-size: 0.8rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 8px;">ラウンド数</div>
+      <div id="roundSelector" style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
+        <button class="round-btn" data-rounds="1" onclick="selectRounds(1)">1</button>
+        <button class="round-btn" data-rounds="2" onclick="selectRounds(2)">2</button>
+        <button class="round-btn selected" data-rounds="3" onclick="selectRounds(3)">3</button>
+        <button class="round-btn" data-rounds="4" onclick="selectRounds(4)">4</button>
+        <button class="round-btn" data-rounds="5" onclick="selectRounds(5)">5</button>
+        <button class="round-btn" data-rounds="6" onclick="selectRounds(6)">6</button>
+        <button class="round-btn" data-rounds="7" onclick="selectRounds(7)">7</button>
+      </div>
+    </div>
+    
     <div style="display: flex; flex-direction: column; gap: 12px; max-width: 320px; margin: 0 auto;">
       <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em;" onclick="startGame('pvp')">
         2人対戦（同じ画面）
@@ -885,7 +1020,7 @@ aside h2 {
         オンライン対戦（準備中）
       </button>
     </div>
-    <div style="margin-top: 32px;">
+    <div style="margin-top: 24px;">
       <button onclick="toggleHelp()" style="font-size: 0.85rem;">遊び方</button>
     </div>
   </div>
@@ -895,6 +1030,7 @@ aside h2 {
   <header>
     <h1>金 屬 イオン <span class="accent">こいこい</span></h1>
     <div class="subtitle">METAL ION KOI-KOI · v2 · SLOT EDITION</div>
+    <div id="roundIndicator" style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--vermilion); letter-spacing: 0.2em; margin-top: 6px;"></div>
   </header>
 
   <main>
@@ -926,16 +1062,14 @@ aside h2 {
         <span>場札 <span id="fieldCount">0</span></span>
         <span>山札 <span id="deckCount">0</span></span>
       </div>
-      <div class="cards" id="fieldCards" style="justify-content: center; min-height: 110px;"></div>
-      <div style="display: flex; justify-content: center; align-items: center; gap: 24px; margin-top: 16px;">
-        <div class="deck-stack" id="deckArea">
+      <div class="field-row">
+        <div class="deck-stack" id="deckArea" title="山札">
           <div class="card card-back"></div>
           <div class="deck-count" id="deckLabel">山札</div>
         </div>
-        <div class="drawn-area">
-          <div class="drawn-label">めくり札</div>
-          <div class="drawn-slot" id="drawnSlot"></div>
-        </div>
+        <div class="drawn-slot" id="drawnSlot" title="めくり札"></div>
+        <div class="field-divider"></div>
+        <div class="cards" id="fieldCards" style="flex: 1; min-height: 70px; align-items: center;"></div>
       </div>
     </section>
 
@@ -994,23 +1128,23 @@ aside h2 {
 // 元素データ
 // ============================================================
 const ELEMENTS = {
-  Li: { name: 'Li', valences: ['+1'], count: 3 },
-  Na: { name: 'Na', valences: ['+1'], count: 3 },
-  K:  { name: 'K',  valences: ['+1'], count: 3 },
-  Mg: { name: 'Mg', valences: ['+2典型'], count: 3 },
-  Ca: { name: 'Ca', valences: ['+2典型'], count: 3 },
-  Ba: { name: 'Ba', valences: ['+2典型'], count: 3 },
-  Al: { name: 'Al', valences: ['+3'], count: 4 },
-  Zn: { name: 'Zn', valences: ['+2典型'], count: 4 },
-  Sn: { name: 'Sn', valences: ['+2典型', '+4'], count: 4 },
-  Pb: { name: 'Pb', valences: ['+2典型', '+4'], count: 4 },
-  Fe: { name: 'Fe', valences: ['+2遷移', '+3'], count: 4 },
-  Cu: { name: 'Cu', valences: ['+1', '+2遷移'], count: 4 },
-  Cr: { name: 'Cr', valences: ['+3'], count: 3 },
-  Ni: { name: 'Ni', valences: ['+2遷移'], count: 2 },
-  Ag: { name: 'Ag', valences: ['+1'], count: 4 },
-  Au: { name: 'Au', valences: ['+1', '+3'], count: 2 },
-  Pt: { name: 'Pt', valences: ['+4'], count: 2 },
+  Li: { name: 'Li', valences: ['+1'],            count: 3, atomicNumber: 3 },
+  Na: { name: 'Na', valences: ['+1'],            count: 3, atomicNumber: 11 },
+  K:  { name: 'K',  valences: ['+1'],            count: 3, atomicNumber: 19 },
+  Mg: { name: 'Mg', valences: ['+2典型'],        count: 3, atomicNumber: 12 },
+  Ca: { name: 'Ca', valences: ['+2典型'],        count: 3, atomicNumber: 20 },
+  Ba: { name: 'Ba', valences: ['+2典型'],        count: 3, atomicNumber: 56 },
+  Al: { name: 'Al', valences: ['+3'],            count: 4, atomicNumber: 13 },
+  Zn: { name: 'Zn', valences: ['+2典型'],        count: 4, atomicNumber: 30 },
+  Sn: { name: 'Sn', valences: ['+2典型', '+4'],  count: 4, atomicNumber: 50 },
+  Pb: { name: 'Pb', valences: ['+2典型', '+4'],  count: 4, atomicNumber: 82 },
+  Fe: { name: 'Fe', valences: ['+2遷移', '+3'],  count: 4, atomicNumber: 26 },
+  Cu: { name: 'Cu', valences: ['+1', '+2遷移'],  count: 4, atomicNumber: 29 },
+  Cr: { name: 'Cr', valences: ['+3'],            count: 3, atomicNumber: 24 },
+  Ni: { name: 'Ni', valences: ['+2遷移'],        count: 2, atomicNumber: 28 },
+  Ag: { name: 'Ag', valences: ['+1'],            count: 4, atomicNumber: 47 },
+  Au: { name: 'Au', valences: ['+1', '+3'],      count: 2, atomicNumber: 79 },
+  Pt: { name: 'Pt', valences: ['+4'],            count: 2, atomicNumber: 78 },
 };
 
 // ============================================================
@@ -1058,10 +1192,26 @@ function createDeck() {
         id: id++,
         symbol: symbol,
         valences: [...info.valences],
+        atomicNumber: info.atomicNumber,
       });
     }
   }
   return deck;
+}
+
+// 手札をソートする（価数順 → 元素アルファベット順）
+const VALENCE_ORDER = ['+1', '+2典型', '+2遷移', '+3', '+4'];
+function sortHand(hand) {
+  return hand.sort((a, b) => {
+    // 主要な価数で比較（複数価数の場合は最小のもの = 先頭）
+    const va = a.valences[0];
+    const vb = b.valences[0];
+    const ordA = VALENCE_ORDER.indexOf(va);
+    const ordB = VALENCE_ORDER.indexOf(vb);
+    if (ordA !== ordB) return ordA - ordB;
+    // 同じ価数なら元素のアルファベット順
+    return a.symbol.localeCompare(b.symbol);
+  });
 }
 
 function shuffle(arr) {
@@ -1092,10 +1242,26 @@ let myPlayerIndex = 0;
 // ゲームモード： 'pvp' | 'cpu' | 'online'
 let gameMode = 'pvp';
 
+// ラウンド設定
+let totalRounds = 3;        // 全ラウンド数（メニューで選ぶ）
+let currentRound = 1;       // 現在何ラウンド目か
+let cumulativeScores = [0, 0]; // 累計得点
+
+// メニューでラウンド数を選択
+function selectRounds(n) {
+  totalRounds = n;
+  document.querySelectorAll('.round-btn').forEach(btn => {
+    btn.classList.toggle('selected', parseInt(btn.dataset.rounds) === n);
+  });
+}
+
 // ゲーム開始（メニューから呼ばれる）
 function startGame(mode) {
   gameMode = mode;
   myPlayerIndex = 0;
+  currentRound = 1;
+  cumulativeScores = [0, 0];
+  lastRoundWinner = null;  // 1ラウンド目は先攻決定演出
   
   // メニュー画面を閉じる
   document.getElementById('startScreen').classList.remove('active');
@@ -1116,11 +1282,32 @@ function backToMenu() {
     clearTimeout(cpuActionTimer);
     cpuActionTimer = null;
   }
+  // 演出タイマーもキャンセル
+  clearCeremonyTimers();
+  skipCeremonyRequested = false;
   
   hideModal('placeModal');
   hideModal('roleModal');
   hideModal('endModal');
+  hideCeremonyOverlay();
   document.getElementById('startScreen').classList.add('active');
+}
+
+// 前ラウンドの勝者（先攻決定用）
+// null: 先攻決定演出を実行
+// 0: プレイヤー0が前ラウンド勝者 → 1が先攻
+// 1: プレイヤー1が前ラウンド勝者 → 0が先攻
+let lastRoundWinner = null;
+
+// 開始演出のスキップ要求フラグ
+let skipCeremonyRequested = false;
+
+// 演出中の保留タイマー一覧（スキップで全部キャンセル）
+let ceremonyTimers = [];
+
+function clearCeremonyTimers() {
+  ceremonyTimers.forEach(t => clearTimeout(t));
+  ceremonyTimers = [];
 }
 
 function newGame() {
@@ -1131,35 +1318,165 @@ function newGame() {
     players: [newPlayer(), newPlayer()],
     currentPlayer: 0,
     selectedHandCard: null,
-    phase: 'play_hand', // play_hand → match_hand → match_draw → place
+    phase: 'ceremony', // ceremony中は操作不可
     drawnCard: null,
-    pendingCaptures: [], // このターンで取った札（場の取り札も含む）の配置待ちキュー
+    pendingCaptures: [],
     gameOver: false,
   };
 
+  // 手札を配る + ソート
   for (let i = 0; i < 7; i++) {
     state.players[0].hand.push(state.deck.pop());
     state.players[1].hand.push(state.deck.pop());
   }
-  for (let i = 0; i < FIELD_REFILL_TARGET; i++) {
-    if (state.deck.length === 0) break;
-    state.field.push(state.deck.pop());
-  }
+  state.players[0].hand = sortHand(state.players[0].hand);
+  state.players[1].hand = sortHand(state.players[1].hand);
+  
+  // ※ field は演出で1枚ずつ追加するので、ここでは空のまま
 
   hideModal('placeModal');
   hideModal('roleModal');
   hideModal('endModal');
   
-  // 役モーダル関連の状態もリセット
   pendingNewRoles = [];
   selectedRoleIds = [];
   placeModalState = null;
+  skipCeremonyRequested = false;
+  clearCeremonyTimers();
   
-  log('ゲーム開始。一の人の番です。');
   render();
   
-  // CPUの手番ならCPUを起動
+  // 演出フロー起動
+  runStartCeremony();
+}
+
+function runStartCeremony() {
+  // 先攻決定が必要かを判定
+  // - 1ラウンド目（lastRoundWinner === null）：先攻決定演出
+  // - 前ラウンドが引き分け：先攻決定演出
+  // - それ以外：前ラウンド負け側が先攻
+  if (lastRoundWinner === 'draw' || lastRoundWinner === null) {
+    runFirstPlayerCeremony(() => runFieldRevealCeremony(startActualGame));
+  } else {
+    // 前ラウンド勝者が分かっている → 負け側が先攻
+    state.currentPlayer = 1 - lastRoundWinner;
+    runFieldRevealCeremony(startActualGame);
+  }
+}
+
+// 先攻決定演出：山札の上から2枚を引いて、原子番号大きい方が先攻
+function runFirstPlayerCeremony(onDone) {
+  // 演出用に山札の上から2枚を取り出す（ゲームに使うわけではないので、後で山札に戻す）
+  if (state.deck.length < 2) {
+    // 山札が少ないとき（通常起きないが念のため）
+    state.currentPlayer = Math.floor(Math.random() * 2);
+    onDone();
+    return;
+  }
+  
+  // 山札から2枚取って表示用にする
+  const cardA = state.deck.pop(); // プレイヤー0用
+  const cardB = state.deck.pop(); // プレイヤー1用
+  
+  // 演出用stateにセット
+  state.ceremonyDraw = {
+    cardA: cardA, // プレイヤー0が引いた
+    cardB: cardB, // プレイヤー1が引いた
+    aRevealed: false,
+    bRevealed: false,
+    decided: false,
+  };
+  
+  showCeremonyOverlay();
+  log('先攻決定中...');
+  
+  // 0.8秒後にAをめくる、その後1秒後にBをめくる、その1秒後に判定発表、2秒後に終了
+  ceremonyTimers.push(setTimeout(() => {
+    if (skipCeremonyRequested) return finishFirstPlayerCeremony(cardA, cardB, onDone);
+    state.ceremonyDraw.aRevealed = true;
+    renderCeremonyOverlay();
+  }, 800));
+  
+  ceremonyTimers.push(setTimeout(() => {
+    if (skipCeremonyRequested) return finishFirstPlayerCeremony(cardA, cardB, onDone);
+    state.ceremonyDraw.bRevealed = true;
+    renderCeremonyOverlay();
+  }, 1700));
+  
+  ceremonyTimers.push(setTimeout(() => {
+    if (skipCeremonyRequested) return finishFirstPlayerCeremony(cardA, cardB, onDone);
+    state.ceremonyDraw.decided = true;
+    renderCeremonyOverlay();
+  }, 2500));
+  
+  ceremonyTimers.push(setTimeout(() => {
+    if (skipCeremonyRequested) return; // すでに finished
+    finishFirstPlayerCeremony(cardA, cardB, onDone);
+  }, 4000));
+}
+
+function finishFirstPlayerCeremony(cardA, cardB, onDone) {
+  clearCeremonyTimers();
+  // 原子番号比較
+  // 同じ場合（あり得ないが）はランダム
+  let firstPlayer;
+  if (cardA.atomicNumber > cardB.atomicNumber) {
+    firstPlayer = 0;
+  } else if (cardB.atomicNumber > cardA.atomicNumber) {
+    firstPlayer = 1;
+  } else {
+    firstPlayer = Math.floor(Math.random() * 2);
+  }
+  state.currentPlayer = firstPlayer;
+  
+  // 引いた2枚を山札に戻す（シャッフル）
+  state.deck.push(cardA, cardB);
+  state.deck = shuffle(state.deck);
+  
+  state.ceremonyDraw = null;
+  hideCeremonyOverlay();
+  log(`${firstPlayer === 0 ? '一の人' : (gameMode === 'cpu' ? 'CPU' : '二の人')}の先攻！`);
+  onDone();
+}
+
+// 場札展開演出：山札から8枚を1枚ずつ場にめくる
+function runFieldRevealCeremony(onDone) {
+  const targetCount = Math.min(FIELD_REFILL_TARGET, state.deck.length);
+  let i = 0;
+  
+  const revealOne = () => {
+    if (i >= targetCount || skipCeremonyRequested) {
+      // 残りを一気に追加
+      while (state.field.length < targetCount && state.deck.length > 0) {
+        state.field.push(state.deck.pop());
+      }
+      clearCeremonyTimers();
+      render();
+      onDone();
+      return;
+    }
+    if (state.deck.length === 0) {
+      onDone();
+      return;
+    }
+    state.field.push(state.deck.pop());
+    render();
+    i++;
+    ceremonyTimers.push(setTimeout(revealOne, 150));
+  };
+  
+  revealOne();
+}
+
+function startActualGame() {
+  state.phase = 'play_hand';
+  log(`${state.currentPlayer === 0 ? '一の人' : (gameMode === 'cpu' ? 'CPU' : '二の人')}の番です。`);
+  render();
   scheduleCpuTurnIfNeeded();
+}
+
+function skipCeremony() {
+  skipCeremonyRequested = true;
 }
 
 // ============================================================
@@ -1416,7 +1733,9 @@ function openPlaceModal() {
   const pendings = [...player.pending];
   
   const selections = {};
-  for (const c of captures) selections[c.id] = null;
+  // 取得札はデフォルト「保留」（ユーザーが役に置きたい札のみ選択する）
+  // ペンディング札もデフォルト「保留維持」
+  for (const c of captures) selections[c.id] = 'pending';
   for (const c of pendings) selections[c.id] = 'pending';
   
   placeModalState = {
@@ -1427,6 +1746,10 @@ function openPlaceModal() {
   
   renderPlaceModal();
   showModal('placeModal');
+  
+  // モーダル内のスクロール位置を一番上にリセット
+  const modalEl = document.querySelector('#placeModal .modal');
+  if (modalEl) modalEl.scrollTop = 0;
 }
 
 function renderPlaceModal() {
@@ -1450,7 +1773,7 @@ function renderPlaceModal() {
   cardDisplay.style.alignItems = 'stretch';
   
   // 各取得札について行を作る
-  document.getElementById('newCardSectionLabel').textContent = '獲得した札の配置先（選択必須）';
+  document.getElementById('newCardSectionLabel').textContent = '獲得した札（デフォルト保留 / 役に置く札を選択）';
   const rolesContainer = document.getElementById('placeModalRoles');
   rolesContainer.innerHTML = '';
   
@@ -1606,10 +1929,30 @@ function createRoleOption(role, player, cardId, disabled) {
     ? `${role.points}〜${role.completePoints}点` 
     : `${role.points}点`;
   
+  // この札の元素 (cardSymbol) を見つける（captures or pendingsから）
+  let cardSymbol = null;
+  const allCards = [...placeModalState.captures, ...placeModalState.pendings];
+  const card = allCards.find(c => c.id === cardId);
+  if (card) cardSymbol = card.symbol;
+  
+  // 役の元素マス表示：すでに埋まってる元素は白、空きはグレー、いま入れる元素はハイライト
+  const slot = player.slots[role.id] || {};
+  const elementsHtml = role.elements.map(e => {
+    const isFilled = !!slot[e];
+    const isThisCard = (e === cardSymbol) && !isFilled;
+    if (isFilled) {
+      return `<span class="modal-elem filled">${e}</span>`;
+    } else if (isThisCard) {
+      return `<span class="modal-elem incoming">${e}</span>`;
+    } else {
+      return `<span class="modal-elem empty">${e}</span>`;
+    }
+  }).join('');
+  
   opt.innerHTML = `
     <div style="flex: 1;">
       <div class="role-name">${role.name}</div>
-      <div class="role-formula">${role.formula}</div>
+      <div class="modal-elem-row">${elementsHtml}</div>
       <div class="role-progress">現在 ${progress.filled}/${progress.total}</div>
     </div>
     <div class="role-points">${points}</div>
@@ -1946,25 +2289,88 @@ function endTurn() {
 
 function endRound(reason) {
   state.gameOver = true;
-  let title = '勝負あり';
-  let result = '';
-  
-  if (state.players[0].score > state.players[1].score) {
-    result = `一の人の勝ち（${state.players[0].score} - ${state.players[1].score}）`;
-  } else if (state.players[1].score > state.players[0].score) {
-    result = `二の人の勝ち（${state.players[1].score} - ${state.players[0].score}）`;
-  } else {
-    result = `引き分け（${state.players[0].score} - ${state.players[1].score}）`;
-  }
-  
-  showEndScreen(title, result);
+  finishCurrentRound('round_end');
 }
 
-function showEndScreen(title, result) {
+// ラウンド終了処理（上がり / 手札切れ 両方から呼ばれる）
+// title, subtitle はラウンド終了画面に表示する内容
+function finishCurrentRound(cause, agariInfo) {
   state.gameOver = true;
-  document.getElementById('endTitle').textContent = title;
-  document.getElementById('endResult').textContent = result;
   
+  // このラウンドの得点を累計に加算
+  cumulativeScores[0] += state.players[0].score;
+  cumulativeScores[1] += state.players[1].score;
+  
+  // 最終ラウンドかチェック
+  const isFinalRound = currentRound >= totalRounds;
+  
+  // 今ラウンド勝者を記録（次ラウンドの先攻決定用）
+  if (state.players[0].score > state.players[1].score) {
+    lastRoundWinner = 0;
+  } else if (state.players[1].score > state.players[0].score) {
+    lastRoundWinner = 1;
+  } else {
+    lastRoundWinner = 'draw';
+  }
+  
+  // タイトルとサブタイトル決定
+  let title, subtitle;
+  if (cause === 'agari') {
+    title = agariInfo.title;
+    subtitle = agariInfo.subtitle;
+  } else {
+    // 手札切れ、引き分け
+    if (state.players[0].score > state.players[1].score) {
+      title = '一の人がラウンド勝利';
+    } else if (state.players[1].score > state.players[0].score) {
+      title = (gameMode === 'cpu') ? 'CPUがラウンド勝利' : '二の人がラウンド勝利';
+    } else {
+      title = '引き分け';
+    }
+    subtitle = `今ラウンド: ${state.players[0].score} - ${state.players[1].score}`;
+  }
+  
+  showRoundEndScreen(title, subtitle, isFinalRound);
+}
+
+function showRoundEndScreen(title, subtitle, isFinalRound) {
+  document.getElementById('endTitle').textContent = isFinalRound 
+    ? '最終結果' 
+    : `${currentRound}/${totalRounds} ラウンド終了`;
+  
+  const opponentLabel = (gameMode === 'cpu') ? 'CPU' : '二の人';
+  let html = '';
+  
+  if (!isFinalRound) {
+    // 中間ラウンド：このラウンドの結果と現在の累計
+    html += `<div style="margin-bottom: 12px; color: var(--gold-bright); font-weight: 700;">${title}</div>`;
+    if (subtitle) html += `<div style="margin-bottom: 16px; font-size: 0.9rem;">${subtitle}</div>`;
+    html += `<div style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; line-height: 1.8;">`;
+    html += `<div>一の人: 今R ${state.players[0].score} 点 / 累計 <span style="color: var(--vermilion); font-weight: 700;">${cumulativeScores[0]}</span> 点</div>`;
+    html += `<div>${opponentLabel}: 今R ${state.players[1].score} 点 / 累計 <span style="color: var(--vermilion); font-weight: 700;">${cumulativeScores[1]}</span> 点</div>`;
+    html += `</div>`;
+  } else {
+    // 最終ラウンド：総合勝者発表
+    html += `<div style="margin-bottom: 12px; font-size: 0.9rem;">${title}</div>`;
+    html += `<div style="font-family: 'JetBrains Mono', monospace; font-size: 1rem; line-height: 1.8; margin: 16px 0;">`;
+    html += `<div>一の人: 累計 <span style="color: var(--gold-bright); font-weight: 700;">${cumulativeScores[0]}</span> 点</div>`;
+    html += `<div>${opponentLabel}: 累計 <span style="color: var(--gold-bright); font-weight: 700;">${cumulativeScores[1]}</span> 点</div>`;
+    html += `</div>`;
+    
+    let winnerText;
+    if (cumulativeScores[0] > cumulativeScores[1]) {
+      winnerText = '一の人の勝利！';
+    } else if (cumulativeScores[1] > cumulativeScores[0]) {
+      winnerText = (gameMode === 'cpu') ? 'CPUの勝利' : '二の人の勝利！';
+    } else {
+      winnerText = '引き分け';
+    }
+    html += `<div style="font-size: 1.4rem; color: var(--vermilion); font-weight: 700; letter-spacing: 0.2em; margin-top: 12px;">${winnerText}</div>`;
+  }
+  
+  document.getElementById('endResult').innerHTML = html;
+  
+  // 役一覧
   const rolesDiv = document.getElementById('endRoles');
   rolesDiv.innerHTML = '';
   state.players.forEach((p, i) => {
@@ -1975,11 +2381,42 @@ function showEndScreen(title, result) {
         if (!r) return id;
         return r.name + (id.endsWith('_full') ? '（完全）' : '');
       }).join('、');
-      rolesDiv.innerHTML += `<div style="margin: 6px 0;"><strong>${i === 0 ? '一の人' : '二の人'}</strong>: ${names}</div>`;
+      const label = i === 0 ? '一の人' : opponentLabel;
+      rolesDiv.innerHTML += `<div style="margin: 6px 0; font-size: 0.85rem;"><strong>${label}</strong>の役: ${names}</div>`;
     }
   });
   
+  // ボタン：次ラウンド or 終了
+  const modal = document.getElementById('endModal');
+  // 既存のbutton(もう一度)を消して、状況に応じたボタンを作る
+  const existingBtn = modal.querySelector('button');
+  if (existingBtn) existingBtn.remove();
+  
+  const btn = document.createElement('button');
+  btn.className = 'primary';
+  if (isFinalRound) {
+    btn.textContent = 'メニューに戻る';
+    btn.onclick = () => {
+      hideModal('endModal');
+      backToMenu();
+    };
+  } else {
+    btn.textContent = `次のラウンドへ（${currentRound + 1}/${totalRounds}）`;
+    btn.onclick = () => {
+      hideModal('endModal');
+      currentRound++;
+      newGame();
+    };
+  }
+  modal.querySelector('.modal').appendChild(btn);
+  
   showModal('endModal');
+}
+
+// 上がり時に呼ばれる（旧 showEndScreen の置き換え）
+function showEndScreen(title, subtitle) {
+  state.gameOver = true;
+  finishCurrentRound('agari', { title, subtitle });
 }
 
 // ============================================================
@@ -1992,6 +2429,7 @@ const CPU_ACTION_DELAY = 800; // CPU の各操作の間隔(ms)
 function scheduleCpuTurnIfNeeded() {
   if (gameMode !== 'cpu') return;
   if (state.gameOver) return;
+  if (state.phase !== 'play_hand') return; // 演出中などは動かない
   
   // CPU はプレイヤー1（インデックス1）固定。state.currentPlayer === 1 の時に動く
   if (state.currentPlayer !== 1) return;
@@ -2238,6 +2676,65 @@ function cpuCheckRoles() {
 }
 
 // ============================================================
+// 先攻決定演出関連
+// ============================================================
+function showCeremonyOverlay() {
+  // ラベル更新
+  document.getElementById('ceremonyLabelA').textContent = '一の人';
+  document.getElementById('ceremonyLabelB').textContent = (gameMode === 'cpu') ? 'CPU' : '二の人';
+  document.getElementById('ceremonyResult').textContent = '';
+  
+  document.getElementById('ceremonyOverlay').classList.add('active');
+  renderCeremonyOverlay();
+}
+
+function hideCeremonyOverlay() {
+  document.getElementById('ceremonyOverlay').classList.remove('active');
+}
+
+function renderCeremonyOverlay() {
+  if (!state.ceremonyDraw) return;
+  
+  const slotA = document.getElementById('ceremonyCardA');
+  const slotB = document.getElementById('ceremonyCardB');
+  slotA.innerHTML = '';
+  slotB.innerHTML = '';
+  
+  if (state.ceremonyDraw.aRevealed) {
+    slotA.appendChild(renderCard(state.ceremonyDraw.cardA, {}));
+  } else {
+    slotA.appendChild(renderCard(null, { faceDown: true }));
+  }
+  
+  if (state.ceremonyDraw.bRevealed) {
+    slotB.appendChild(renderCard(state.ceremonyDraw.cardB, {}));
+  } else {
+    slotB.appendChild(renderCard(null, { faceDown: true }));
+  }
+  
+  // 判定発表
+  const resultEl = document.getElementById('ceremonyResult');
+  if (state.ceremonyDraw.decided) {
+    const a = state.ceremonyDraw.cardA;
+    const b = state.ceremonyDraw.cardB;
+    const oppLabel = (gameMode === 'cpu') ? 'CPU' : '二の人';
+    let txt;
+    if (a.atomicNumber > b.atomicNumber) {
+      txt = `${a.symbol}(${a.atomicNumber}) > ${b.symbol}(${b.atomicNumber}) → 一の人の先攻`;
+    } else if (b.atomicNumber > a.atomicNumber) {
+      txt = `${b.symbol}(${b.atomicNumber}) > ${a.symbol}(${a.atomicNumber}) → ${oppLabel}の先攻`;
+    } else {
+      txt = '同点 → ランダム決定';
+    }
+    resultEl.textContent = txt;
+  } else if (state.ceremonyDraw.bRevealed && state.ceremonyDraw.aRevealed) {
+    resultEl.textContent = '...';
+  } else {
+    resultEl.textContent = '';
+  }
+}
+
+// ============================================================
 // 描画
 // ============================================================
 function valenceClass(v) {
@@ -2327,6 +2824,12 @@ function render() {
   const isMyTurn = state.currentPlayer === myPlayerIndex && !state.gameOver;
   const isOppTurn = state.currentPlayer === oppIdx && !state.gameOver;
   
+  // ラウンド表示
+  const roundEl = document.getElementById('roundIndicator');
+  if (roundEl) {
+    roundEl.textContent = `ラウンド ${currentRound} / ${totalRounds}`;
+  }
+  
   // アクティブ表示（手番のプレイヤー）
   document.getElementById('selfArea').classList.toggle('active', isMyTurn);
   document.getElementById('opponentArea').classList.toggle('active', isOppTurn);
@@ -2385,8 +2888,8 @@ function render() {
   }
   
   // 得点
-  document.getElementById('selfScore').textContent = state.players[myPlayerIndex].score;
-  document.getElementById('opponentScore').textContent = state.players[oppIdx].score;
+  document.getElementById('selfScore').textContent = `${state.players[myPlayerIndex].score}（累計${cumulativeScores[myPlayerIndex] + state.players[myPlayerIndex].score}）`;
+  document.getElementById('opponentScore').textContent = `${state.players[oppIdx].score}（累計${cumulativeScores[oppIdx] + state.players[oppIdx].score}）`;
   
   // スロット表示
   const renderSlots = (containerId, playerIdx) => {
