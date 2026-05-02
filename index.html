@@ -1,0 +1,2159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>金属イオンこいこい v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #1a1410;
+  --bg-mid: #2a1f18;
+  --bg-card: #f4ead5;
+  --bg-card-shadow: #d4c5a0;
+  --ink: #1a1410;
+  --ink-soft: #4a3f35;
+  --gold: #c9a961;
+  --gold-bright: #e8c878;
+  --vermilion: #b84a3e;
+  --moss: #5a6b3a;
+  --indigo: #2a3f5f;
+  --typical: #c9a961;
+  --transition: #b84a3e;
+  --plus1: #5a8aa8;
+  --plus3: #7a5a8a;
+  --plus4: #5a6b3a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Shippori Mincho', serif;
+  background: var(--bg-deep);
+  background-image: 
+    radial-gradient(circle at 20% 30%, rgba(184, 74, 62, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(201, 169, 97, 0.08) 0%, transparent 50%);
+  color: var(--bg-card);
+  min-height: 100vh;
+  padding: 16px;
+  overflow-x: hidden;
+}
+
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .app { grid-template-columns: 1fr; }
+}
+
+header {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--gold);
+  position: relative;
+}
+
+header::before {
+  content: "金 屬 之 戯";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 8rem;
+  color: rgba(201, 169, 97, 0.04);
+  letter-spacing: 1rem;
+  font-weight: 800;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+h1 {
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--gold-bright);
+  position: relative;
+}
+
+h1 .accent {
+  color: var(--vermilion);
+}
+
+.subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--gold);
+  opacity: 0.6;
+  letter-spacing: 0.4em;
+  margin-top: 8px;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.player-area {
+  background: linear-gradient(135deg, var(--bg-mid) 0%, #1f1612 100%);
+  border: 1px solid rgba(201, 169, 97, 0.2);
+  border-radius: 4px;
+  padding: 16px;
+  position: relative;
+}
+
+.player-area.active {
+  border-color: var(--gold);
+  box-shadow: 0 0 30px rgba(201, 169, 97, 0.15);
+}
+
+.player-area.active::before {
+  content: "▼ 手番";
+  position: absolute;
+  top: -12px;
+  left: 16px;
+  background: var(--vermilion);
+  color: var(--bg-card);
+  padding: 2px 12px;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.player-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  color: var(--gold);
+  letter-spacing: 0.2em;
+}
+
+.score-badge {
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--bg-deep);
+  padding: 4px 12px;
+  border: 1px solid var(--gold);
+  border-radius: 2px;
+}
+
+.player-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.section-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.3em;
+  color: var(--gold);
+  opacity: 0.7;
+  margin-bottom: 6px;
+}
+
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 100px;
+}
+
+.cards-pending {
+  min-height: 80px;
+  border: 1px dashed rgba(201, 169, 97, 0.3);
+  padding: 8px;
+  border-radius: 3px;
+}
+
+.cards-pending:empty::before {
+  content: "（保留札なし）";
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+}
+
+.field-area {
+  background: linear-gradient(180deg, #243b27 0%, #1a2a1c 100%);
+  border: 2px solid var(--moss);
+  border-radius: 4px;
+  padding: 20px;
+  position: relative;
+}
+
+.field-area::before {
+  content: "場";
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-deep);
+  color: var(--gold);
+  padding: 2px 16px;
+  font-size: 0.85rem;
+  letter-spacing: 0.4em;
+}
+
+.field-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--gold);
+  opacity: 0.7;
+}
+
+.card {
+  width: 64px;
+  height: 96px;
+  background: var(--bg-card);
+  background-image: 
+    linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%),
+    radial-gradient(circle at 30% 20%, rgba(201, 169, 97, 0.1) 0%, transparent 70%);
+  color: var(--ink);
+  border-radius: 3px;
+  border: 1px solid var(--bg-card-shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  box-shadow: 
+    0 2px 4px rgba(0,0,0,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.5);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  font-family: 'Shippori Mincho', serif;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 6px 12px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.5);
+}
+
+.card.selected {
+  transform: translateY(-12px);
+  border-color: var(--vermilion);
+  box-shadow: 
+    0 8px 16px rgba(184, 74, 62, 0.4),
+    0 0 0 2px var(--vermilion),
+    inset 0 1px 0 rgba(255,255,255,0.5);
+}
+
+.card.matchable {
+  border-color: var(--gold);
+  box-shadow: 
+    0 2px 4px rgba(0,0,0,0.3),
+    0 0 0 2px var(--gold-bright),
+    0 0 20px rgba(201, 169, 97, 0.3),
+    inset 0 1px 0 rgba(255,255,255,0.5);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 0 2px var(--gold-bright), 0 0 20px rgba(201, 169, 97, 0.3); }
+  50% { box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 0 2px var(--gold-bright), 0 0 30px rgba(201, 169, 97, 0.6); }
+}
+
+.card-symbol {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.card-valences {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.valence-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 2px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.valence-tag.v-plus1 { background: var(--plus1); color: white; }
+.valence-tag.v-plus2-typical { background: var(--typical); color: var(--bg-deep); }
+.valence-tag.v-plus2-transition { background: var(--transition); color: white; }
+.valence-tag.v-plus3 { background: var(--plus3); color: white; }
+.valence-tag.v-plus4 { background: var(--plus4); color: white; }
+
+.card-back {
+  background: linear-gradient(135deg, #2a1f18 0%, #4a3a2a 50%, #2a1f18 100%);
+  border-color: var(--gold);
+  cursor: default;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-back::after {
+  content: "化";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2rem;
+  color: var(--gold);
+  opacity: 0.5;
+}
+
+.card-back:hover { transform: none; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+
+.controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+button {
+  font-family: 'Shippori Mincho', serif;
+  background: var(--bg-mid);
+  color: var(--gold-bright);
+  border: 1px solid var(--gold);
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 2px;
+}
+
+button:hover:not(:disabled) {
+  background: var(--gold);
+  color: var(--bg-deep);
+}
+
+button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--vermilion);
+  color: var(--bg-card);
+  border-color: var(--vermilion);
+}
+
+button.primary:hover:not(:disabled) {
+  background: #d65a4e;
+  border-color: #d65a4e;
+}
+
+button.danger {
+  border-color: var(--ink-soft);
+  color: var(--ink-soft);
+}
+
+aside {
+  background: var(--bg-mid);
+  border: 1px solid rgba(201, 169, 97, 0.2);
+  border-radius: 4px;
+  padding: 16px;
+  height: fit-content;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+aside h2 {
+  font-size: 1rem;
+  letter-spacing: 0.3em;
+  color: var(--gold-bright);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--gold);
+}
+
+.role-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+}
+
+.role-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 6px 8px;
+  background: var(--bg-deep);
+  border-left: 2px solid var(--gold);
+  gap: 8px;
+}
+
+.role-item.completed {
+  border-left-color: var(--vermilion);
+  background: rgba(184, 74, 62, 0.1);
+}
+
+.role-name {
+  color: var(--bg-card);
+  font-size: 0.78rem;
+}
+
+.role-formula {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--ink-soft);
+  margin-top: 2px;
+  display: block;
+}
+
+.role-points {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--gold);
+  font-weight: 700;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* スロットエリア */
+.slots-area {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(0,0,0,0.2);
+  border: 1px dashed rgba(201, 169, 97, 0.3);
+  padding: 8px;
+  border-radius: 3px;
+  min-height: 60px;
+}
+
+.slots-area:empty::before {
+  content: "（まだ役を狙っていません。札を取って役のスロットへ）";
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  display: block;
+  text-align: center;
+  padding: 12px 0;
+}
+
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-deep);
+  padding: 6px 8px;
+  border: 1px solid rgba(201, 169, 97, 0.3);
+  border-radius: 3px;
+  font-size: 0.8rem;
+}
+
+.slot.complete {
+  border-color: var(--vermilion);
+  background: rgba(184, 74, 62, 0.15);
+}
+
+.slot-name {
+  font-weight: 600;
+  color: var(--gold-bright);
+  min-width: 110px;
+  font-size: 0.8rem;
+}
+
+.slot-mini-cards {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.slot-mini-card {
+  width: 24px;
+  height: 32px;
+  background: var(--bg-card);
+  color: var(--ink);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border: 1px solid var(--bg-card-shadow);
+}
+
+.slot-mini-card.empty {
+  background: transparent;
+  border: 1px dashed rgba(201, 169, 97, 0.4);
+  color: rgba(201, 169, 97, 0.6);
+}
+
+.slot-progress {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.slot-points {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--vermilion);
+  font-weight: 700;
+}
+
+.message-log {
+  background: var(--bg-deep);
+  border: 1px solid rgba(201, 169, 97, 0.2);
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  min-height: 60px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--gold-bright);
+  letter-spacing: 0.05em;
+}
+
+.message-log .turn-label {
+  color: var(--vermilion);
+  font-weight: 700;
+}
+
+.action-bar {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  min-height: 0;
+  transition: min-height 0.2s;
+}
+
+.action-bar:not(:empty) {
+  min-height: 50px;
+  padding: 8px;
+  background: rgba(184, 74, 62, 0.1);
+  border: 1px solid var(--vermilion);
+  border-radius: 4px;
+  margin-bottom: -8px;
+}
+
+.action-bar .action-info {
+  font-size: 0.85rem;
+  color: var(--gold-bright);
+  letter-spacing: 0.05em;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal {
+  background: var(--bg-mid);
+  border: 2px solid var(--gold);
+  border-radius: 4px;
+  padding: 24px;
+  max-width: 600px;
+  width: 90%;
+  text-align: center;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal h2 {
+  color: var(--gold-bright);
+  font-size: 1.3rem;
+  letter-spacing: 0.3em;
+  margin-bottom: 12px;
+}
+
+.modal-card-display {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0;
+}
+
+.modal-section-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  color: var(--gold);
+  margin: 16px 0 8px;
+  text-align: left;
+}
+
+.modal-roles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.modal-role {
+  background: var(--bg-deep);
+  border: 1px solid rgba(201, 169, 97, 0.3);
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.modal-role:hover { 
+  background: rgba(201, 169, 97, 0.1);
+  border-color: var(--gold);
+}
+
+.modal-role.selected {
+  background: var(--vermilion);
+  color: var(--bg-card);
+  border-color: var(--vermilion);
+}
+
+.modal-role.selected .role-name,
+.modal-role.selected .role-points,
+.modal-role.selected .role-formula,
+.modal-role.selected .role-progress {
+  color: var(--bg-card);
+}
+
+.modal-role.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.modal-role.disabled:hover {
+  background: var(--bg-deep);
+}
+
+.role-progress {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--gold);
+  margin-top: 2px;
+}
+
+.modal-pending-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed rgba(201, 169, 97, 0.3);
+}
+
+.modal-pending-card-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0,0,0,0.3);
+  padding: 8px;
+  border-radius: 3px;
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+.modal-pending-card-row .card {
+  flex-shrink: 0;
+}
+
+.modal-pending-card-row .options {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modal-pending-card-row select {
+  background: var(--bg-deep);
+  color: var(--gold-bright);
+  border: 1px solid var(--gold);
+  padding: 4px 8px;
+  font-family: 'Shippori Mincho', serif;
+  font-size: 0.85rem;
+  border-radius: 2px;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.koikoi-banner {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  font-size: 6rem;
+  font-weight: 800;
+  color: var(--vermilion);
+  text-shadow: 0 0 40px rgba(184, 74, 62, 0.8);
+  letter-spacing: 0.3em;
+  z-index: 200;
+  pointer-events: none;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.koikoi-banner.show {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.65rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--ink-soft);
+}
+
+.legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.opponent-hand .card-back {
+  width: 50px;
+  height: 75px;
+}
+
+.opponent-hand .card-back::after { font-size: 1.4rem; }
+
+@media (max-width: 768px) {
+  .card { width: 52px; height: 78px; }
+  .card-symbol { font-size: 1.3rem; }
+  .valence-tag { font-size: 0.55rem; padding: 1px 3px; }
+  h1 { font-size: 1.4rem; letter-spacing: 0.2em; }
+  header::before { font-size: 4rem; }
+}
+
+.deck-stack {
+  position: relative;
+  width: 64px;
+  height: 96px;
+}
+
+.deck-count {
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.drawn-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.drawn-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--gold);
+  letter-spacing: 0.2em;
+  opacity: 0.7;
+}
+
+.drawn-slot {
+  width: 64px;
+  height: 96px;
+  border: 1px dashed rgba(201, 169, 97, 0.3);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drawn-slot .card {
+  cursor: default;
+  animation: cardFlip 0.4s ease-out;
+  box-shadow: 0 4px 16px rgba(232, 200, 120, 0.4),
+              0 0 0 2px var(--gold-bright),
+              inset 0 1px 0 rgba(255,255,255,0.5);
+}
+
+@keyframes cardFlip {
+  0% { transform: rotateY(180deg) scale(0.8); opacity: 0; }
+  50% { transform: rotateY(90deg) scale(0.9); opacity: 0.5; }
+  100% { transform: rotateY(0deg) scale(1); opacity: 1; }
+}
+
+.pending-marker {
+  font-size: 0.6rem;
+  color: var(--gold);
+  letter-spacing: 0.15em;
+  margin-top: 2px;
+  opacity: 0.7;
+}
+</style>
+</head>
+<body>
+
+<div class="koikoi-banner" id="koikoiBanner">こいこい！</div>
+
+<!-- 配置モーダル -->
+<div class="modal-overlay" id="placeModal">
+  <div class="modal">
+    <h2 id="placeModalTitle">札を獲得</h2>
+    <div class="modal-card-display" id="placeModalCard"></div>
+    <p style="color: var(--gold); font-size: 0.85rem;">どの役で使いますか？</p>
+    <div id="placeModalStatus" style="margin: 8px 0; padding: 8px; background: var(--bg-deep); border-radius: 3px; font-size: 0.85rem; letter-spacing: 0.05em; border: 1px solid var(--gold);"></div>
+    <div class="modal-section-label" id="newCardSectionLabel">獲得した札の配置先</div>
+    <div class="modal-roles" id="placeModalRoles"></div>
+    <div class="modal-pending-section" id="placeModalPendingSection" style="display:none;">
+      <div class="modal-section-label">保留中の札も配置できます</div>
+      <div id="placeModalPendingList"></div>
+    </div>
+    <div class="modal-buttons">
+      <button class="primary" id="placeModalConfirmBtn">決定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 役成立モーダル -->
+<div class="modal-overlay" id="roleModal">
+  <div class="modal">
+    <h2 id="roleModalTitle">役が成立</h2>
+    <p id="roleModalSubtitle" style="color: var(--gold); font-size: 0.85rem; letter-spacing: 0.1em;"></p>
+    <div class="modal-roles" id="roleModalRoles"></div>
+    <div class="modal-buttons">
+      <button class="primary" id="roleModalAgariBtn">上がる</button>
+      <button id="roleModalKoikoiBtn">こいこい</button>
+    </div>
+  </div>
+</div>
+
+<!-- ゲーム終了モーダル -->
+<div class="modal-overlay" id="endModal">
+  <div class="modal">
+    <h2 id="endTitle">勝負あり</h2>
+    <p id="endResult" style="color: var(--gold-bright); font-size: 1.1rem; margin: 16px 0;"></p>
+    <div id="endRoles" style="font-size: 0.85rem; color: var(--bg-card); margin: 16px 0;"></div>
+    <button class="primary" onclick="newGame()">もう一度</button>
+  </div>
+</div>
+
+<div class="app">
+  <header>
+    <h1>金 屬 イオン <span class="accent">こいこい</span></h1>
+    <div class="subtitle">METAL ION KOI-KOI · v2 · SLOT EDITION</div>
+  </header>
+
+  <main>
+    <!-- Player 2 (上) -->
+    <section class="player-area" id="player2Area">
+      <div class="player-header">
+        <span>二の人</span>
+        <span class="score-badge">得点 <span id="p2Score">0</span></span>
+      </div>
+      <div class="player-body">
+        <div>
+          <div class="section-label">手札</div>
+          <div class="cards opponent-hand" id="p2Hand"></div>
+        </div>
+        <div>
+          <div class="section-label">役スロット</div>
+          <div class="slots-area" id="p2Slots"></div>
+        </div>
+        <div>
+          <div class="section-label">保留札（ペンディング）</div>
+          <div class="cards cards-pending" id="p2Pending"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Field -->
+    <section class="field-area">
+      <div class="field-info">
+        <span>場札 <span id="fieldCount">0</span></span>
+        <span>山札 <span id="deckCount">0</span></span>
+      </div>
+      <div class="cards" id="fieldCards" style="justify-content: center; min-height: 110px;"></div>
+      <div style="display: flex; justify-content: center; align-items: center; gap: 24px; margin-top: 16px;">
+        <div class="deck-stack" id="deckArea">
+          <div class="card card-back"></div>
+          <div class="deck-count" id="deckLabel">山札</div>
+        </div>
+        <div class="drawn-area">
+          <div class="drawn-label">めくり札</div>
+          <div class="drawn-slot" id="drawnSlot"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Player 1 (下) -->
+    <section class="player-area active" id="player1Area">
+      <div class="player-header">
+        <span>一の人</span>
+        <span class="score-badge">得点 <span id="p1Score">0</span></span>
+      </div>
+      <div class="player-body">
+        <div>
+          <div class="section-label">手札</div>
+          <div class="cards" id="p1Hand"></div>
+        </div>
+        <div>
+          <div class="section-label">役スロット</div>
+          <div class="slots-area" id="p1Slots"></div>
+        </div>
+        <div>
+          <div class="section-label">保留札（ペンディング）</div>
+          <div class="cards cards-pending" id="p1Pending"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="action-bar" id="actionBar"></div>
+    <div class="message-log" id="messageLog">ゲームを開始します。</div>
+
+    <div class="controls">
+      <button onclick="newGame()" class="danger">新しいゲーム</button>
+      <button onclick="toggleRoleList()">役一覧</button>
+      <button onclick="toggleHelp()">遊び方</button>
+    </div>
+  </main>
+
+  <aside id="sidebar">
+    <h2>役 一 覧</h2>
+    <div class="role-list" id="roleList"></div>
+    <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(201, 169, 97, 0.3);">
+      <div style="font-size: 0.75rem; letter-spacing: 0.2em; color: var(--gold); margin-bottom: 6px;">価数の凡例</div>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-swatch" style="background: var(--plus1);"></span>+1</div>
+        <div class="legend-item"><span class="legend-swatch" style="background: var(--typical);"></span>+2典型</div>
+        <div class="legend-item"><span class="legend-swatch" style="background: var(--transition);"></span>+2遷移</div>
+        <div class="legend-item"><span class="legend-swatch" style="background: var(--plus3);"></span>+3</div>
+        <div class="legend-item"><span class="legend-swatch" style="background: var(--plus4);"></span>+4</div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+// ============================================================
+// 元素データ
+// ============================================================
+const ELEMENTS = {
+  Li: { name: 'Li', valences: ['+1'], count: 3 },
+  Na: { name: 'Na', valences: ['+1'], count: 3 },
+  K:  { name: 'K',  valences: ['+1'], count: 3 },
+  Mg: { name: 'Mg', valences: ['+2典型'], count: 3 },
+  Ca: { name: 'Ca', valences: ['+2典型'], count: 3 },
+  Ba: { name: 'Ba', valences: ['+2典型'], count: 3 },
+  Al: { name: 'Al', valences: ['+3'], count: 4 },
+  Zn: { name: 'Zn', valences: ['+2典型'], count: 4 },
+  Sn: { name: 'Sn', valences: ['+2典型', '+4'], count: 4 },
+  Pb: { name: 'Pb', valences: ['+2典型', '+4'], count: 4 },
+  Fe: { name: 'Fe', valences: ['+2遷移', '+3'], count: 4 },
+  Cu: { name: 'Cu', valences: ['+1', '+2遷移'], count: 4 },
+  Cr: { name: 'Cr', valences: ['+3'], count: 3 },
+  Ni: { name: 'Ni', valences: ['+2遷移'], count: 2 },
+  Ag: { name: 'Ag', valences: ['+1'], count: 4 },
+  Au: { name: 'Au', valences: ['+1', '+3'], count: 2 },
+  Pt: { name: 'Pt', valences: ['+4'], count: 2 },
+};
+
+// ============================================================
+// 役の定義
+// ============================================================
+// extensible: 炎色反応のみ true（3つで成立、6つまで拡張可、最大時に得点アップ）
+const ROLES = [
+  { id: 'enkabutsu',     name: '塩化物沈殿',        elements: ['Ag','Pb'], points: 2, formula: 'Ag + Pb' },
+  { id: 'alkali',        name: 'アルカリ金属',      elements: ['Li','Na','K'], points: 5, formula: 'Li + Na + K' },
+  { id: 'alkali_earth',  name: 'アルカリ土類金属',  elements: ['Mg','Ca','Ba'], points: 5, formula: 'Mg + Ca + Ba' },
+  { id: 'sulfate',       name: '硫酸塩沈殿',        elements: ['Ca','Ba','Pb'], points: 5, formula: 'Ca + Ba + Pb' },
+  { id: 'sulfide_acid',  name: '硫化物沈殿(酸性)',  elements: ['Cu','Pb','Ag'], points: 5, formula: 'Cu + Pb + Ag' },
+  { id: 'tin_zinc_iron', name: 'トタンとブリキ',    elements: ['Fe','Zn','Sn'], points: 5, formula: 'Fe + Zn + Sn' },
+  { id: 'stainless',     name: 'ステンレス',        elements: ['Fe','Cr','Ni'], points: 5, formula: 'Fe + Cr + Ni' },
+  { id: 'duralumin',     name: 'ジュラルミン',      elements: ['Al','Cu','Mg'], points: 5, formula: 'Al + Cu + Mg' },
+  { id: 'fudoutai',      name: '不動態',            elements: ['Fe','Al','Cr'], points: 5, formula: 'Fe + Al + Cr' },
+  { id: 'ammonia',       name: 'アンモニア錯体',    elements: ['Cu','Ag','Zn'], points: 5, formula: 'Cu + Ag + Zn' },
+  { id: 'flame',         name: '炎色反応',          elements: ['Li','Na','K','Cu','Ca','Ba'], points: 5, formula: '3つで5点・全6つで10点', extensible: true, completePoints: 10 },
+  { id: 'copper_alloy',  name: '銅合金',            elements: ['Cu','Zn','Sn','Ni'], points: 7, formula: 'Cu + Zn + Sn + Ni' },
+  { id: 'amphoteric',    name: '両性元素',          elements: ['Al','Zn','Sn','Pb'], points: 7, formula: 'Al + Zn + Sn + Pb' },
+  { id: 'noble',         name: '貴金属',            elements: ['Au','Pt','Ag'], points: 5, formula: 'Au + Pt + Ag' },
+];
+
+const ROLE_BY_ID = {};
+ROLES.forEach(r => { ROLE_BY_ID[r.id] = r; });
+
+// 場札の補充ターゲット枚数と補充トリガー
+const FIELD_REFILL_TARGET = 8;
+const FIELD_REFILL_TRIGGER = 2;
+
+// こいこい1回ごとの上がり時ボーナス点
+const KOIKOI_BONUS_PER_COUNT = 3;
+
+// ============================================================
+// ゲーム状態
+// ============================================================
+let state = null;
+
+function createDeck() {
+  const deck = [];
+  let id = 0;
+  for (const [symbol, info] of Object.entries(ELEMENTS)) {
+    for (let i = 0; i < info.count; i++) {
+      deck.push({
+        id: id++,
+        symbol: symbol,
+        valences: [...info.valences],
+      });
+    }
+  }
+  return deck;
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function newPlayer() {
+  return {
+    hand: [],
+    pending: [],     // 保留札（card オブジェクト配列）
+    slots: {},       // { roleId: { elementSymbol: cardObj or null, ... } }
+    score: 0,
+    completedRoles: [], // 上がりorこいこいで申告した役のID
+    koikoi: false,
+    koikoiCount: 0,  // こいこい宣言した回数（上がり時のボーナス計算用）
+  };
+}
+
+function newGame() {
+  const deck = shuffle(createDeck());
+  state = {
+    deck: deck,
+    field: [],
+    players: [newPlayer(), newPlayer()],
+    currentPlayer: 0,
+    selectedHandCard: null,
+    phase: 'play_hand', // play_hand → match_hand → match_draw → place
+    drawnCard: null,
+    pendingCaptures: [], // このターンで取った札（場の取り札も含む）の配置待ちキュー
+    gameOver: false,
+  };
+
+  for (let i = 0; i < 7; i++) {
+    state.players[0].hand.push(state.deck.pop());
+    state.players[1].hand.push(state.deck.pop());
+  }
+  for (let i = 0; i < FIELD_REFILL_TARGET; i++) {
+    if (state.deck.length === 0) break;
+    state.field.push(state.deck.pop());
+  }
+
+  hideModal('placeModal');
+  hideModal('roleModal');
+  hideModal('endModal');
+  log('ゲーム開始。一の人の番です。');
+  render();
+}
+
+// ============================================================
+// 価数マッチング
+// ============================================================
+function canMatch(card1, card2) {
+  for (const v of card1.valences) {
+    if (card2.valences.includes(v)) return true;
+  }
+  return false;
+}
+
+function findMatches(card, fieldCards) {
+  return fieldCards.filter(fc => canMatch(card, fc));
+}
+
+// ============================================================
+// スロット関連ヘルパー
+// ============================================================
+// 役ごとのスロット枠を初期化
+function ensureSlot(player, roleId) {
+  if (!player.slots[roleId]) {
+    const role = ROLE_BY_ID[roleId];
+    const slot = {};
+    role.elements.forEach(e => { slot[e] = null; });
+    player.slots[roleId] = slot;
+  }
+  return player.slots[roleId];
+}
+
+// 役のスロットがすでに存在するか
+function hasSlot(player, roleId) {
+  return !!player.slots[roleId];
+}
+
+// 役の現在の充足状況（埋まったマス数 / 全マス数）
+function slotProgress(player, roleId) {
+  const role = ROLE_BY_ID[roleId];
+  if (!player.slots[roleId]) return { filled: 0, total: role.elements.length };
+  let filled = 0;
+  for (const e of role.elements) {
+    if (player.slots[roleId][e]) filled++;
+  }
+  return { filled, total: role.elements.length };
+}
+
+// 役が成立しているか（拡張可役は最低3つで成立）
+function isSlotComplete(player, roleId) {
+  const role = ROLE_BY_ID[roleId];
+  const p = slotProgress(player, roleId);
+  if (role.extensible) return p.filled >= 3;
+  return p.filled === p.total;
+}
+
+// 拡張可役の現在の得点（3=3点、6=7点）
+function getRoleCurrentPoints(player, roleId) {
+  const role = ROLE_BY_ID[roleId];
+  if (!role.extensible) return role.points;
+  const p = slotProgress(player, roleId);
+  if (p.filled >= 6) return role.completePoints;
+  return role.points;
+}
+
+// 札を配置できる役の候補リストを返す
+// その役のelementsにcard.symbolが含まれ、かつそのマスがまだ空いている役
+function getPlaceableRoles(player, card) {
+  const result = [];
+  for (const role of ROLES) {
+    if (!role.elements.includes(card.symbol)) continue;
+    // すでにそのマスが埋まっているなら配置不可
+    if (player.slots[role.id] && player.slots[role.id][card.symbol]) continue;
+    // すでに完成済み(extensible除く)なら配置不可
+    if (!role.extensible && isSlotComplete(player, role.id) && hasSlot(player, role.id)) continue;
+    // 完成済み非拡張役（completedRoles 入り）に新しく入れることもなし
+    if (player.completedRoles.includes(role.id) && !role.extensible) continue;
+    // 拡張可役で6マス全部埋まってるなら配置不可
+    if (role.extensible) {
+      const p = slotProgress(player, role.id);
+      if (p.filled >= 6) continue;
+    }
+    result.push(role);
+  }
+  return result;
+}
+
+// 札を配置：sourceは 'hand'/'pending'のヒント不要、playerのpendingやcaptureから動かす
+function placeCardInSlot(player, card, roleId) {
+  ensureSlot(player, roleId);
+  player.slots[roleId][card.symbol] = card;
+}
+
+// ============================================================
+// アクション処理
+// ============================================================
+function selectHandCard(cardId) {
+  if (state.gameOver) return;
+  if (state.phase !== 'play_hand' && state.phase !== 'match_hand') return;
+  
+  const player = state.players[state.currentPlayer];
+  const card = player.hand.find(c => c.id === cardId);
+  if (!card) return;
+  
+  if (state.selectedHandCard && state.selectedHandCard.id === cardId) {
+    state.selectedHandCard = null;
+    state.phase = 'play_hand';
+    log('選択を取り消しました。');
+    render();
+    return;
+  }
+  
+  state.selectedHandCard = card;
+  state.phase = 'match_hand';
+  
+  const matches = findMatches(card, state.field);
+  if (matches.length === 0) {
+    log(`${card.symbol}：取れる場札なし。「場に置く」ボタンで確定、または別の札を選択。`);
+  } else if (matches.length === 1) {
+    log(`${card.symbol}：光る場札をクリックして取る、または別の札を選択。`);
+  } else {
+    log(`${card.symbol}：取りたい場札を選んでください。`);
+  }
+  render();
+}
+
+function placeSelectedCardOnField() {
+  if (state.gameOver) return;
+  if (state.phase !== 'match_hand') return;
+  if (!state.selectedHandCard) return;
+  
+  const player = state.players[state.currentPlayer];
+  const card = state.selectedHandCard;
+  
+  log(`${card.symbol}を場に置きました。`);
+  player.hand = player.hand.filter(c => c.id !== card.id);
+  state.field.push(card);
+  state.selectedHandCard = null;
+  state.phase = 'play_hand';
+  proceedToDraw();
+}
+
+function selectFieldCard(cardId) {
+  if (state.gameOver) return;
+  
+  if (state.phase === 'match_hand') {
+    const player = state.players[state.currentPlayer];
+    const handCard = state.selectedHandCard;
+    const fieldCard = state.field.find(c => c.id === cardId);
+    
+    if (!fieldCard || !canMatch(handCard, fieldCard)) {
+      log('この札は取れません。');
+      return;
+    }
+    
+    log(`${handCard.symbol}で場の${fieldCard.symbol}を取りました。`);
+    player.hand = player.hand.filter(c => c.id !== handCard.id);
+    state.field = state.field.filter(c => c.id !== fieldCard.id);
+    
+    state.pendingCaptures.push(handCard, fieldCard);
+    state.selectedHandCard = null;
+    state.phase = 'play_hand';
+    proceedToDraw();
+  } else if (state.phase === 'match_draw') {
+    const drawnCard = state.drawnCard;
+    const fieldCard = state.field.find(c => c.id === cardId);
+    
+    if (!fieldCard || !canMatch(drawnCard, fieldCard)) {
+      log('この札は取れません。');
+      return;
+    }
+    
+    log(`山札の${drawnCard.symbol}で場の${fieldCard.symbol}を取りました。`);
+    state.field = state.field.filter(c => c.id !== fieldCard.id);
+    state.pendingCaptures.push(drawnCard, fieldCard);
+    state.drawnCard = null;
+    state.phase = 'play_hand';
+    
+    afterAllCaptures();
+  }
+}
+
+function proceedToDraw() {
+  if (state.deck.length === 0) {
+    afterAllCaptures();
+    return;
+  }
+  
+  const drawn = state.deck.pop();
+  state.drawnCard = drawn;
+  const matches = findMatches(drawn, state.field);
+  
+  log(`山札から${drawn.symbol}が出ました。`);
+  render();
+  
+  if (matches.length === 0) {
+    setTimeout(() => {
+      log(`${drawn.symbol}を場に置きました。`);
+      state.field.push(drawn);
+      state.drawnCard = null;
+      afterAllCaptures();
+    }, 1200);
+  } else {
+    state.phase = 'match_draw';
+    if (matches.length === 1) {
+      log(`山札の${drawn.symbol}で取れる札を選んでください。`);
+    } else {
+      log(`山札の${drawn.symbol}に対応する場札を選んでください。`);
+    }
+    render();
+  }
+}
+
+function refillFieldIfNeeded() {
+  if (state.field.length > FIELD_REFILL_TRIGGER) return;
+  let added = 0;
+  while (state.field.length < FIELD_REFILL_TARGET && state.deck.length > 0) {
+    state.field.push(state.deck.pop());
+    added++;
+  }
+  if (added > 0) {
+    log(`場札が少なくなったので、山から${added}枚補充しました。`);
+  }
+}
+
+// 全取りが終わったあと、配置モーダルを開く（取りがあれば）
+function afterAllCaptures() {
+  state.drawnCard = null;
+  refillFieldIfNeeded();
+  if (state.pendingCaptures.length > 0) {
+    openPlaceModal();
+  } else {
+    // 取りなしターン：ペンディングは凍結。役判定もなし（札の動きがないので新規成立はあり得ない）
+    endTurn();
+  }
+}
+
+// ============================================================
+// 配置モーダル
+// ============================================================
+let placeModalState = null;
+
+function openPlaceModal() {
+  const player = state.players[state.currentPlayer];
+  const captures = [...state.pendingCaptures];
+  const pendings = [...player.pending];
+  
+  // 各札について配置先選択を保持
+  // selections: { cardId: 'pending' | roleId }
+  const selections = {};
+  // 新規取得札はデフォルト配置先未選択（ユーザー必須選択）
+  // ペンディング札はデフォルト「pending（保留維持）」
+  for (const c of captures) selections[c.id] = null;
+  for (const c of pendings) selections[c.id] = 'pending';
+  
+  placeModalState = {
+    captures,
+    pendings,
+    selections,
+  };
+  
+  renderPlaceModal();
+  showModal('placeModal');
+}
+
+function renderPlaceModal() {
+  const player = state.players[state.currentPlayer];
+  const playerName = state.currentPlayer === 0 ? '一の人' : '二の人';
+  document.getElementById('placeModalTitle').textContent = `${playerName} 札を獲得`;
+  
+  // 取得した札の表示と配置先選択
+  const cardDisplay = document.getElementById('placeModalCard');
+  cardDisplay.innerHTML = '';
+  const captures = placeModalState.captures;
+  const cardsRow = document.createElement('div');
+  cardsRow.style.display = 'flex';
+  cardsRow.style.gap = '8px';
+  cardsRow.style.justifyContent = 'center';
+  cardsRow.style.flexWrap = 'wrap';
+  
+  // 取得札ごとに「カード + 配置先選択」を縦に並べる
+  cardDisplay.style.flexDirection = 'column';
+  cardDisplay.style.gap = '12px';
+  cardDisplay.style.alignItems = 'stretch';
+  
+  // 各取得札について行を作る
+  document.getElementById('newCardSectionLabel').textContent = '獲得した札の配置先（選択必須）';
+  const rolesContainer = document.getElementById('placeModalRoles');
+  rolesContainer.innerHTML = '';
+  
+  captures.forEach(card => {
+    const row = document.createElement('div');
+    row.className = 'modal-pending-card-row';
+    row.style.flexDirection = 'column';
+    row.style.alignItems = 'stretch';
+    
+    // カード+ヘッダ
+    const headerRow = document.createElement('div');
+    headerRow.style.display = 'flex';
+    headerRow.style.alignItems = 'center';
+    headerRow.style.gap = '12px';
+    headerRow.style.marginBottom = '8px';
+    
+    const cardDiv = renderCard(card, {});
+    headerRow.appendChild(cardDiv);
+    
+    const label = document.createElement('div');
+    label.style.color = 'var(--gold-bright)';
+    label.style.fontSize = '0.9rem';
+    label.style.flex = '1';
+    label.style.textAlign = 'left';
+    label.textContent = `${card.symbol} の配置先：`;
+    headerRow.appendChild(label);
+    
+    row.appendChild(headerRow);
+    
+    // 配置選択肢
+    const optionsList = document.createElement('div');
+    optionsList.style.display = 'flex';
+    optionsList.style.flexDirection = 'column';
+    optionsList.style.gap = '4px';
+    
+    const placeable = getPlaceableRoles(player, card);
+    
+    if (placeable.length === 0) {
+      const note = document.createElement('div');
+      note.style.color = 'var(--ink-soft)';
+      note.style.fontSize = '0.8rem';
+      note.style.padding = '6px';
+      note.textContent = '※ 配置できる役なし（保留に）';
+      optionsList.appendChild(note);
+      placeModalState.selections[card.id] = 'pending';
+    }
+    
+    // 各役の選択肢
+    placeable.forEach(role => {
+      const opt = createRoleOption(role, player, card.id, false);
+      optionsList.appendChild(opt);
+    });
+    
+    // 保留オプション
+    const pendingOpt = document.createElement('div');
+    pendingOpt.className = 'modal-role';
+    if (placeModalState.selections[card.id] === 'pending') pendingOpt.classList.add('selected');
+    pendingOpt.innerHTML = `
+      <div>
+        <div class="role-name">保留（ペンディング）</div>
+        <div class="role-formula">後のターンで配置できる</div>
+      </div>
+      <div class="role-points">-</div>
+    `;
+    pendingOpt.onclick = () => {
+      placeModalState.selections[card.id] = 'pending';
+      renderPlaceModal();
+    };
+    optionsList.appendChild(pendingOpt);
+    
+    row.appendChild(optionsList);
+    rolesContainer.appendChild(row);
+  });
+  
+  // ペンディング札の配置オプション
+  const pendingSection = document.getElementById('placeModalPendingSection');
+  const pendingList = document.getElementById('placeModalPendingList');
+  pendingList.innerHTML = '';
+  
+  if (placeModalState.pendings.length > 0) {
+    pendingSection.style.display = 'block';
+    placeModalState.pendings.forEach(card => {
+      const row = document.createElement('div');
+      row.className = 'modal-pending-card-row';
+      row.style.flexDirection = 'column';
+      row.style.alignItems = 'stretch';
+      
+      const headerRow = document.createElement('div');
+      headerRow.style.display = 'flex';
+      headerRow.style.alignItems = 'center';
+      headerRow.style.gap = '12px';
+      headerRow.style.marginBottom = '8px';
+      
+      const cardDiv = renderCard(card, {});
+      headerRow.appendChild(cardDiv);
+      
+      const label = document.createElement('div');
+      label.style.color = 'var(--gold-bright)';
+      label.style.fontSize = '0.9rem';
+      label.style.flex = '1';
+      label.style.textAlign = 'left';
+      label.textContent = `保留中の ${card.symbol}：`;
+      headerRow.appendChild(label);
+      
+      row.appendChild(headerRow);
+      
+      const optionsList = document.createElement('div');
+      optionsList.style.display = 'flex';
+      optionsList.style.flexDirection = 'column';
+      optionsList.style.gap = '4px';
+      
+      const placeable = getPlaceableRoles(player, card);
+      placeable.forEach(role => {
+        const opt = createRoleOption(role, player, card.id, false);
+        optionsList.appendChild(opt);
+      });
+      
+      // 保留維持オプション
+      const stayOpt = document.createElement('div');
+      stayOpt.className = 'modal-role';
+      if (placeModalState.selections[card.id] === 'pending') stayOpt.classList.add('selected');
+      stayOpt.innerHTML = `
+        <div>
+          <div class="role-name">保留を続ける</div>
+          <div class="role-formula">次のターンで配置可能</div>
+        </div>
+        <div class="role-points">-</div>
+      `;
+      stayOpt.onclick = () => {
+        placeModalState.selections[card.id] = 'pending';
+        renderPlaceModal();
+      };
+      optionsList.appendChild(stayOpt);
+      
+      row.appendChild(optionsList);
+      pendingList.appendChild(row);
+    });
+  } else {
+    pendingSection.style.display = 'none';
+  }
+  
+  updatePlaceModalConfirmBtn();
+}
+
+function createRoleOption(role, player, cardId, disabled) {
+  const opt = document.createElement('div');
+  opt.className = 'modal-role';
+  if (disabled) opt.classList.add('disabled');
+  if (placeModalState.selections[cardId] === role.id) opt.classList.add('selected');
+  
+  const progress = slotProgress(player, role.id);
+  const points = role.extensible 
+    ? `${role.points}〜${role.completePoints}点` 
+    : `${role.points}点`;
+  
+  opt.innerHTML = `
+    <div style="flex: 1;">
+      <div class="role-name">${role.name}</div>
+      <div class="role-formula">${role.formula}</div>
+      <div class="role-progress">現在 ${progress.filled}/${progress.total}</div>
+    </div>
+    <div class="role-points">${points}</div>
+  `;
+  
+  if (!disabled) {
+    opt.onclick = () => {
+      placeModalState.selections[cardId] = role.id;
+      renderPlaceModal();
+    };
+  }
+  return opt;
+}
+
+// このターンで役に配置される札の総数（新規取得＋ペンディングからの配置）
+function countCardsBeingPlaced() {
+  let count = 0;
+  const sel = placeModalState.selections;
+  for (const id of Object.keys(sel)) {
+    if (sel[id] && sel[id] !== 'pending') count++;
+  }
+  return count;
+}
+
+const PLACE_LIMIT_PER_TURN = 2;
+
+function updatePlaceModalConfirmBtn() {
+  const btn = document.getElementById('placeModalConfirmBtn');
+  const captures = placeModalState.captures;
+  const allSelected = captures.every(c => placeModalState.selections[c.id]);
+  const placeCount = countCardsBeingPlaced();
+  const overLimit = placeCount > PLACE_LIMIT_PER_TURN;
+  
+  btn.disabled = !allSelected || overLimit;
+  
+  if (overLimit) {
+    btn.textContent = `役に置けるのは2枚まで`;
+  } else {
+    btn.textContent = `決定`;
+  }
+  
+  btn.onclick = confirmPlacements;
+  
+  // ステータスバー更新
+  const statusBar = document.getElementById('placeModalStatus');
+  if (statusBar) {
+    if (overLimit) {
+      statusBar.style.color = 'var(--vermilion)';
+      statusBar.style.borderColor = 'var(--vermilion)';
+      statusBar.textContent = `⚠ 役に置けるのは1ターンに2枚まで（現在 ${placeCount} 枚を役に配置中）`;
+    } else {
+      statusBar.style.color = 'var(--gold-bright)';
+      statusBar.style.borderColor = 'var(--gold)';
+      statusBar.textContent = `役に配置: ${placeCount} / ${PLACE_LIMIT_PER_TURN} 枚（残り${PLACE_LIMIT_PER_TURN - placeCount}枚配置可能）`;
+    }
+  }
+}
+
+function confirmPlacements() {
+  const player = state.players[state.currentPlayer];
+  const sel = placeModalState.selections;
+  
+  // まず既存ペンディングを処理（保留継続 or 役へ）
+  const newPending = [];
+  for (const card of placeModalState.pendings) {
+    const dest = sel[card.id];
+    if (dest === 'pending' || !dest) {
+      newPending.push(card);
+    } else {
+      placeCardInSlot(player, card, dest);
+    }
+  }
+  player.pending = newPending;
+  
+  // 次に新規取得札を配置（pending選択ならplayer.pendingに追加される）
+  for (const card of placeModalState.captures) {
+    const dest = sel[card.id];
+    if (dest === 'pending') {
+      player.pending.push(card);
+    } else {
+      placeCardInSlot(player, card, dest);
+    }
+  }
+  
+  // pendingCapturesクリア
+  state.pendingCaptures = [];
+  placeModalState = null;
+  hideModal('placeModal');
+  
+  // 役の成立判定
+  checkRolesAfterPlacement();
+}
+
+function checkRolesAfterPlacement() {
+  const player = state.players[state.currentPlayer];
+  const newRoles = [];
+  
+  for (const role of ROLES) {
+    if (player.completedRoles.includes(role.id) && !role.extensible) continue;
+    if (!hasSlot(player, role.id)) continue;
+    
+    if (role.extensible) {
+      // 拡張可：3つ以上で「成立」状態。まだ申告してなければ、または前回より成長していれば対象
+      const progress = slotProgress(player, role.id);
+      if (progress.filled < 3) continue;
+      
+      const wasCompleted = player.completedRoles.includes(role.id);
+      if (!wasCompleted) {
+        // 初回成立
+        newRoles.push({ role, mode: 'new', currentPoints: getRoleCurrentPoints(player, role.id) });
+      } else {
+        // 拡張：前回からの進捗があるかどうかは別途記録が必要だが、簡易的に「まだ6マス埋まってない+α」で再申告対象に
+        // ここでは「6マス埋まったら格上げ申告可能」というルールにする
+        if (progress.filled === 6 && !player.completedRoles.includes(role.id + '_full')) {
+          newRoles.push({ role, mode: 'upgrade', currentPoints: role.completePoints });
+        }
+      }
+    } else {
+      if (isSlotComplete(player, role.id)) {
+        newRoles.push({ role, mode: 'new', currentPoints: role.points });
+      }
+    }
+  }
+  
+  if (newRoles.length > 0) {
+    showRoleModal(newRoles);
+  } else {
+    endTurn();
+  }
+}
+
+// ============================================================
+// 役モーダル
+// ============================================================
+let pendingNewRoles = [];
+let selectedRoleIds = [];
+
+function showRoleModal(newRoleEntries) {
+  pendingNewRoles = newRoleEntries;
+  selectedRoleIds = newRoleEntries.map(r => r.role.id + (r.mode === 'upgrade' ? '_full' : ''));
+  
+  const playerName = state.currentPlayer === 0 ? '一の人' : '二の人';
+  document.getElementById('roleModalTitle').textContent = `${playerName} 役成立`;
+  document.getElementById('roleModalSubtitle').textContent = '上がる役を選んでください（複数選択可）';
+  
+  const list = document.getElementById('roleModalRoles');
+  list.innerHTML = '';
+  newRoleEntries.forEach(entry => {
+    const role = entry.role;
+    const div = document.createElement('div');
+    div.className = 'modal-role selected';
+    const internalId = role.id + (entry.mode === 'upgrade' ? '_full' : '');
+    div.dataset.internalId = internalId;
+    const displayName = entry.mode === 'upgrade' ? `${role.name}（完全）` : role.name;
+    div.innerHTML = `
+      <div style="text-align: left;">
+        <div class="role-name" style="font-size: 0.95rem;">${displayName}</div>
+        <div class="role-formula">${role.formula}</div>
+      </div>
+      <div class="role-points">${entry.currentPoints}点</div>
+    `;
+    div.onclick = () => {
+      div.classList.toggle('selected');
+      const id = div.dataset.internalId;
+      if (selectedRoleIds.includes(id)) {
+        selectedRoleIds = selectedRoleIds.filter(x => x !== id);
+      } else {
+        selectedRoleIds.push(id);
+      }
+      updateRoleModalButtons();
+    };
+    list.appendChild(div);
+  });
+  
+  updateRoleModalButtons();
+  
+  document.getElementById('roleModalAgariBtn').onclick = confirmAgari;
+  document.getElementById('roleModalKoikoiBtn').onclick = confirmKoikoi;
+  
+  showModal('roleModal');
+  render();
+}
+
+function updateRoleModalButtons() {
+  // 選ばれた役の合計点
+  const player = state.players[state.currentPlayer];
+  let totalPoints = 0;
+  for (const entry of pendingNewRoles) {
+    const id = entry.role.id + (entry.mode === 'upgrade' ? '_full' : '');
+    if (selectedRoleIds.includes(id)) {
+      // upgradeの場合は (complete - already_announced) の差分点
+      if (entry.mode === 'upgrade') {
+        // 既に基本3点を取っていれば、完全7点との差分は4点
+        totalPoints += (entry.currentPoints - entry.role.points);
+      } else {
+        totalPoints += entry.currentPoints;
+      }
+    }
+  }
+  
+  const agariBtn = document.getElementById('roleModalAgariBtn');
+  const koikoiBtn = document.getElementById('roleModalKoikoiBtn');
+  
+  agariBtn.textContent = `上がる (${totalPoints}点)`;
+  agariBtn.disabled = totalPoints < 5 || selectedRoleIds.length === 0;
+  koikoiBtn.disabled = selectedRoleIds.length === 0;
+}
+
+function confirmAgari() {
+  const player = state.players[state.currentPlayer];
+  let points = 0;
+  const announcedNames = [];
+  
+  for (const entry of pendingNewRoles) {
+    const id = entry.role.id + (entry.mode === 'upgrade' ? '_full' : '');
+    if (!selectedRoleIds.includes(id)) continue;
+    
+    if (entry.mode === 'upgrade') {
+      points += (entry.currentPoints - entry.role.points);
+      player.completedRoles.push(entry.role.id + '_full');
+      announcedNames.push(entry.role.name + '（完全）');
+    } else {
+      points += entry.currentPoints;
+      player.completedRoles.push(entry.role.id);
+      announcedNames.push(entry.role.name);
+    }
+  }
+  
+  // こいこいボーナス：宣言回数 × 3点
+  let bonusText = '';
+  if (player.koikoiCount > 0) {
+    const bonus = player.koikoiCount * KOIKOI_BONUS_PER_COUNT;
+    points += bonus;
+    bonusText = `（こいこい${player.koikoiCount}回 +${bonus}点）`;
+    log(`こいこい${player.koikoiCount}回ボーナス +${bonus}点`);
+  }
+  
+  player.score += points;
+  hideModal('roleModal');
+  
+  const playerName = state.currentPlayer === 0 ? '一の人' : '二の人';
+  showEndScreen(`${playerName}の上がり！`, `${announcedNames.join('、')} ${bonusText} で ${points}点`);
+}
+
+function confirmKoikoi() {
+  const player = state.players[state.currentPlayer];
+  
+  for (const entry of pendingNewRoles) {
+    const id = entry.role.id + (entry.mode === 'upgrade' ? '_full' : '');
+    if (!selectedRoleIds.includes(id)) continue;
+    
+    if (entry.mode === 'upgrade') {
+      player.completedRoles.push(entry.role.id + '_full');
+    } else {
+      player.completedRoles.push(entry.role.id);
+    }
+  }
+  player.koikoi = true;
+  player.koikoiCount += 1;
+  
+  hideModal('roleModal');
+  showKoikoiBanner();
+  
+  const names = pendingNewRoles
+    .filter(e => selectedRoleIds.includes(e.role.id + (e.mode === 'upgrade' ? '_full' : '')))
+    .map(e => e.role.name + (e.mode === 'upgrade' ? '（完全）' : ''))
+    .join('、');
+  log(`${names} 確定。こいこい！(${player.koikoiCount}回目, 上がり時+${player.koikoiCount * KOIKOI_BONUS_PER_COUNT}点)`);
+  
+  setTimeout(() => endTurn(), 1500);
+}
+
+function showKoikoiBanner() {
+  const banner = document.getElementById('koikoiBanner');
+  banner.classList.add('show');
+  setTimeout(() => banner.classList.remove('show'), 1200);
+}
+
+// ============================================================
+// ターン終了
+// ============================================================
+function endTurn() {
+  if (state.players[0].hand.length === 0 && state.players[1].hand.length === 0) {
+    endRound('hand_empty');
+    return;
+  }
+  if (state.deck.length === 0 && state.players[0].hand.length === 0 && state.players[1].hand.length === 0) {
+    endRound('deck_empty');
+    return;
+  }
+  
+  state.currentPlayer = 1 - state.currentPlayer;
+  state.phase = 'play_hand';
+  state.selectedHandCard = null;
+  log(`${state.currentPlayer === 0 ? '一' : '二'}の人の番です。`);
+  render();
+}
+
+function endRound(reason) {
+  state.gameOver = true;
+  let title = '勝負あり';
+  let result = '';
+  
+  if (state.players[0].score > state.players[1].score) {
+    result = `一の人の勝ち（${state.players[0].score} - ${state.players[1].score}）`;
+  } else if (state.players[1].score > state.players[0].score) {
+    result = `二の人の勝ち（${state.players[1].score} - ${state.players[0].score}）`;
+  } else {
+    result = `引き分け（${state.players[0].score} - ${state.players[1].score}）`;
+  }
+  
+  showEndScreen(title, result);
+}
+
+function showEndScreen(title, result) {
+  state.gameOver = true;
+  document.getElementById('endTitle').textContent = title;
+  document.getElementById('endResult').textContent = result;
+  
+  const rolesDiv = document.getElementById('endRoles');
+  rolesDiv.innerHTML = '';
+  state.players.forEach((p, i) => {
+    if (p.completedRoles.length > 0) {
+      const names = p.completedRoles.map(id => {
+        const baseId = id.replace(/_full$/, '');
+        const r = ROLE_BY_ID[baseId];
+        if (!r) return id;
+        return r.name + (id.endsWith('_full') ? '（完全）' : '');
+      }).join('、');
+      rolesDiv.innerHTML += `<div style="margin: 6px 0;"><strong>${i === 0 ? '一の人' : '二の人'}</strong>: ${names}</div>`;
+    }
+  });
+  
+  showModal('endModal');
+}
+
+// ============================================================
+// 描画
+// ============================================================
+function valenceClass(v) {
+  if (v === '+1') return 'v-plus1';
+  if (v === '+2典型') return 'v-plus2-typical';
+  if (v === '+2遷移') return 'v-plus2-transition';
+  if (v === '+3') return 'v-plus3';
+  if (v === '+4') return 'v-plus4';
+  return '';
+}
+
+function renderCard(card, options = {}) {
+  const div = document.createElement('div');
+  div.className = 'card';
+  if (options.selected) div.classList.add('selected');
+  if (options.matchable) div.classList.add('matchable');
+  if (options.faceDown) {
+    div.classList.add('card-back');
+    return div;
+  }
+  
+  const symbol = document.createElement('div');
+  symbol.className = 'card-symbol';
+  symbol.textContent = card.symbol;
+  div.appendChild(symbol);
+  
+  const valences = document.createElement('div');
+  valences.className = 'card-valences';
+  card.valences.forEach(v => {
+    const tag = document.createElement('div');
+    tag.className = 'valence-tag ' + valenceClass(v);
+    tag.textContent = v;
+    valences.appendChild(tag);
+  });
+  div.appendChild(valences);
+  
+  if (options.onClick) div.onclick = options.onClick;
+  return div;
+}
+
+function renderSlot(player, role) {
+  const div = document.createElement('div');
+  div.className = 'slot';
+  const progress = slotProgress(player, role.id);
+  if (isSlotComplete(player, role.id)) div.classList.add('complete');
+  
+  const name = document.createElement('div');
+  name.className = 'slot-name';
+  name.textContent = role.name;
+  div.appendChild(name);
+  
+  const cards = document.createElement('div');
+  cards.className = 'slot-mini-cards';
+  for (const e of role.elements) {
+    const m = document.createElement('div');
+    m.className = 'slot-mini-card';
+    if (player.slots[role.id] && player.slots[role.id][e]) {
+      m.textContent = e;
+    } else {
+      m.classList.add('empty');
+      m.textContent = e;
+    }
+    cards.appendChild(m);
+  }
+  div.appendChild(cards);
+  
+  const prog = document.createElement('div');
+  prog.className = 'slot-progress';
+  prog.textContent = `${progress.filled}/${progress.total}`;
+  div.appendChild(prog);
+  
+  const pts = document.createElement('div');
+  pts.className = 'slot-points';
+  if (role.extensible) {
+    const cur = getRoleCurrentPoints(player, role.id);
+    pts.textContent = `${cur}点`;
+  } else {
+    pts.textContent = `${role.points}点`;
+  }
+  div.appendChild(pts);
+  
+  return div;
+}
+
+function render() {
+  document.getElementById('player1Area').classList.toggle('active', state.currentPlayer === 0 && !state.gameOver);
+  document.getElementById('player2Area').classList.toggle('active', state.currentPlayer === 1 && !state.gameOver);
+  
+  // 手札（手番のプレイヤーは表向き）
+  const renderPlayerHand = (playerIdx, container) => {
+    container.innerHTML = '';
+    const isCurrent = state.currentPlayer === playerIdx && !state.gameOver;
+    state.players[playerIdx].hand.forEach(card => {
+      if (isCurrent) {
+        const clickable = (state.phase === 'play_hand' || state.phase === 'match_hand');
+        const isSelected = state.selectedHandCard && state.selectedHandCard.id === card.id;
+        const div = renderCard(card, {
+          selected: isSelected,
+          onClick: clickable ? () => selectHandCard(card.id) : null,
+        });
+        container.appendChild(div);
+      } else {
+        container.appendChild(renderCard(null, { faceDown: true }));
+      }
+    });
+  };
+  renderPlayerHand(0, document.getElementById('p1Hand'));
+  renderPlayerHand(1, document.getElementById('p2Hand'));
+  
+  // 場札
+  const fieldCards = document.getElementById('fieldCards');
+  fieldCards.innerHTML = '';
+  state.field.forEach(card => {
+    let matchable = false;
+    if ((state.phase === 'match_hand' || state.phase === 'match_draw') && !state.gameOver) {
+      const ref = state.phase === 'match_hand' ? state.selectedHandCard : state.drawnCard;
+      if (ref && canMatch(ref, card)) matchable = true;
+    }
+    const div = renderCard(card, {
+      matchable,
+      onClick: matchable ? () => selectFieldCard(card.id) : null,
+    });
+    fieldCards.appendChild(div);
+  });
+  
+  document.getElementById('deckCount').textContent = state.deck.length + '枚';
+  document.getElementById('fieldCount').textContent = state.field.length + '枚';
+  document.getElementById('deckLabel').textContent = `山札 ${state.deck.length}`;
+  
+  // めくり札
+  const drawnSlot = document.getElementById('drawnSlot');
+  drawnSlot.innerHTML = '';
+  if (state.drawnCard) {
+    drawnSlot.appendChild(renderCard(state.drawnCard, {}));
+  }
+  
+  // 得点
+  document.getElementById('p1Score').textContent = state.players[0].score;
+  document.getElementById('p2Score').textContent = state.players[1].score;
+  
+  // スロット表示（自プレイヤーは詳細表示、相手は1枚以上配置されたものだけ表示）
+  ['p1Slots', 'p2Slots'].forEach((id, idx) => {
+    const div = document.getElementById(id);
+    div.innerHTML = '';
+    const player = state.players[idx];
+    for (const role of ROLES) {
+      if (!hasSlot(player, role.id)) continue;
+      const progress = slotProgress(player, role.id);
+      if (progress.filled === 0) continue;
+      div.appendChild(renderSlot(player, role));
+    }
+  });
+  
+  // ペンディング表示（オンライン対戦想定で常に表向き）
+  ['p1Pending', 'p2Pending'].forEach((id, idx) => {
+    const div = document.getElementById(id);
+    div.innerHTML = '';
+    const player = state.players[idx];
+    player.pending.forEach(card => {
+      div.appendChild(renderCard(card, {}));
+    });
+  });
+  
+  // アクションバー
+  const actionBar = document.getElementById('actionBar');
+  actionBar.innerHTML = '';
+  if (state.phase === 'match_hand' && state.selectedHandCard && !state.gameOver) {
+    const card = state.selectedHandCard;
+    const matches = findMatches(card, state.field);
+    if (matches.length === 0) {
+      const info = document.createElement('span');
+      info.className = 'action-info';
+      info.textContent = `${card.symbol} は場に取れる札がありません。`;
+      actionBar.appendChild(info);
+      
+      const placeBtn = document.createElement('button');
+      placeBtn.className = 'primary';
+      placeBtn.textContent = '場に置く';
+      placeBtn.onclick = placeSelectedCardOnField;
+      actionBar.appendChild(placeBtn);
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'キャンセル';
+      cancelBtn.onclick = () => selectHandCard(card.id);
+      actionBar.appendChild(cancelBtn);
+    } else {
+      const info = document.createElement('span');
+      info.className = 'action-info';
+      info.textContent = `${card.symbol} で取れる場札を選んでください。`;
+      actionBar.appendChild(info);
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = '選択を取り消す';
+      cancelBtn.onclick = () => selectHandCard(card.id);
+      actionBar.appendChild(cancelBtn);
+    }
+  } else if (state.phase === 'match_draw' && state.drawnCard && !state.gameOver) {
+    const info = document.createElement('span');
+    info.className = 'action-info';
+    info.textContent = `めくり札 ${state.drawnCard.symbol} で取る場札を選んでください。`;
+    actionBar.appendChild(info);
+  }
+  
+  renderRoleList();
+}
+
+function renderRoleList() {
+  const list = document.getElementById('roleList');
+  list.innerHTML = '';
+  
+  const completedSet = new Set([
+    ...state.players[0].completedRoles,
+    ...state.players[1].completedRoles,
+  ]);
+  
+  ROLES.forEach(role => {
+    const div = document.createElement('div');
+    div.className = 'role-item';
+    if (completedSet.has(role.id)) div.classList.add('completed');
+    const points = role.extensible 
+      ? `${role.points}-${role.completePoints}`
+      : role.points;
+    div.innerHTML = `
+      <div>
+        <div class="role-name">${role.name}</div>
+        <span class="role-formula">${role.formula}</span>
+      </div>
+      <div class="role-points">${points}</div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+// ============================================================
+// UI ヘルパー
+// ============================================================
+function log(msg) {
+  document.getElementById('messageLog').innerHTML = 
+    `<span class="turn-label">${state.currentPlayer === 0 ? '[一]' : '[二]'}</span> ${msg}`;
+}
+
+function showModal(id) {
+  document.getElementById(id).classList.add('active');
+}
+
+function hideModal(id) {
+  document.getElementById(id).classList.remove('active');
+}
+
+function toggleRoleList() {
+  const sb = document.getElementById('sidebar');
+  sb.style.display = sb.style.display === 'none' ? 'block' : 'none';
+}
+
+function toggleHelp() {
+  alert(
+`【遊び方 v2 スロット版】
+
+1. 手札から札を1枚クリックして選択。
+2. 場に同じ価数の札があれば、光る札を選んで取る。
+   ・なければ「場に置く」ボタンで流す。
+3. 山札から1枚自動でめくられる。同様に処理。
+4. 札を取った瞬間、その札をどの役のどのマスに入れるか
+   選ぶモーダルが開く。
+   ・各札について「○○の役」または「保留」を選択。
+   ・保留中の札も同時に役に配置できる。
+   ・1ターンで役に置けるのは合計2枚まで。
+     （新規取得＋保留からの配置を合算）
+     残りは強制的に保留行きになる。
+5. 役のスロットが全マス埋まったら成立！
+   ・上がるかこいこいか選ぶ（5点以上で上がり可）。
+   ・こいこい1回ごとに上がり時+3点ボーナス。
+
+【炎色反応の特例】
+6マスのスロットで、3マス埋まると基本5点で成立。
+こいこい中に追加で配置でき、6マス全部埋まれば
+完全10点に格上げできる。
+
+【保留札（ペンディング）】
+取った札の配置先を決めかねたら保留に。
+ただし保留札を役に動かせるのは「次に新しい札を取った時」
+だけ。何もしないターンでは保留札は凍結。
+溜め込みすぎると相手に先に上がられる。
+
+【スロットの不可逆性】
+一度どの役のマスに入れた札は、別の役には移せない。
+1枚の札は1つのマスにのみ使える。`
+  );
+}
+
+newGame();
+</script>
+</body>
+</html>
