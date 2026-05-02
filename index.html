@@ -869,24 +869,24 @@ aside h2 {
   </header>
 
   <main>
-    <!-- Player 2 (上) -->
-    <section class="player-area" id="player2Area">
+    <!-- 相手 (上) -->
+    <section class="player-area" id="opponentArea">
       <div class="player-header">
-        <span>二の人</span>
-        <span class="score-badge">得点 <span id="p2Score">0</span></span>
+        <span id="opponentName">相手</span>
+        <span class="score-badge">得点 <span id="opponentScore">0</span></span>
       </div>
       <div class="player-body">
         <div>
-          <div class="section-label">手札</div>
-          <div class="cards opponent-hand" id="p2Hand"></div>
+          <div class="section-label">手札（裏）</div>
+          <div class="cards opponent-hand" id="opponentHand"></div>
         </div>
         <div>
           <div class="section-label">役スロット</div>
-          <div class="slots-area" id="p2Slots"></div>
+          <div class="slots-area" id="opponentSlots"></div>
         </div>
         <div>
           <div class="section-label">保留札（ペンディング）</div>
-          <div class="cards cards-pending" id="p2Pending"></div>
+          <div class="cards cards-pending" id="opponentPending"></div>
         </div>
       </div>
     </section>
@@ -910,24 +910,24 @@ aside h2 {
       </div>
     </section>
 
-    <!-- Player 1 (下) -->
-    <section class="player-area active" id="player1Area">
+    <!-- 自分 (下) -->
+    <section class="player-area active" id="selfArea">
       <div class="player-header">
-        <span>一の人</span>
-        <span class="score-badge">得点 <span id="p1Score">0</span></span>
+        <span id="selfName">自分</span>
+        <span class="score-badge">得点 <span id="selfScore">0</span></span>
       </div>
       <div class="player-body">
         <div>
           <div class="section-label">手札</div>
-          <div class="cards" id="p1Hand"></div>
+          <div class="cards" id="selfHand"></div>
         </div>
         <div>
           <div class="section-label">役スロット</div>
-          <div class="slots-area" id="p1Slots"></div>
+          <div class="slots-area" id="selfSlots"></div>
         </div>
         <div>
           <div class="section-label">保留札（ペンディング）</div>
-          <div class="cards cards-pending" id="p1Pending"></div>
+          <div class="cards cards-pending" id="selfPending"></div>
         </div>
       </div>
     </section>
@@ -939,6 +939,7 @@ aside h2 {
       <button onclick="newGame()" class="danger">新しいゲーム</button>
       <button onclick="toggleRoleList()">役一覧</button>
       <button onclick="toggleHelp()">遊び方</button>
+      <button onclick="switchViewpoint()" id="viewpointBtn" style="border-color: var(--vermilion); color: var(--vermilion);">視点切替（テスト用）</button>
     </div>
   </main>
 
@@ -1053,6 +1054,10 @@ function newPlayer() {
     koikoiCount: 0,  // こいこい宣言した回数（上がり時のボーナス計算用）
   };
 }
+
+// グローバル：自分がプレイヤー1か2か（オンライン化前のテスト用、デフォルト0）
+// 実際のオンライン対戦では、ルーム参加時に決まる
+let myPlayerIndex = 0;
 
 function newGame() {
   const deck = shuffle(createDeck());
@@ -1178,6 +1183,7 @@ function placeCardInSlot(player, card, roleId) {
 // ============================================================
 function selectHandCard(cardId) {
   if (state.gameOver) return;
+  if (state.currentPlayer !== myPlayerIndex) return; // 自分の手番のみ操作可
   if (state.phase !== 'play_hand' && state.phase !== 'match_hand') return;
   
   const player = state.players[state.currentPlayer];
@@ -1208,6 +1214,7 @@ function selectHandCard(cardId) {
 
 function placeSelectedCardOnField() {
   if (state.gameOver) return;
+  if (state.currentPlayer !== myPlayerIndex) return;
   if (state.phase !== 'match_hand') return;
   if (!state.selectedHandCard) return;
   
@@ -1224,6 +1231,7 @@ function placeSelectedCardOnField() {
 
 function selectFieldCard(cardId) {
   if (state.gameOver) return;
+  if (state.currentPlayer !== myPlayerIndex) return;
   
   if (state.phase === 'match_hand') {
     const player = state.players[state.currentPlayer];
@@ -1323,15 +1331,18 @@ function afterAllCaptures() {
 let placeModalState = null;
 
 function openPlaceModal() {
+  // 自分の手番でなければモーダルを開かず、自動でターン終了処理
+  if (state.currentPlayer !== myPlayerIndex) {
+    // 相手の手番：取った札はとりあえずペンディング扱い（オンライン化時はサーバー側で処理）
+    // ローカルテスト時、視点切替してもらう
+    return;
+  }
+  
   const player = state.players[state.currentPlayer];
   const captures = [...state.pendingCaptures];
   const pendings = [...player.pending];
   
-  // 各札について配置先選択を保持
-  // selections: { cardId: 'pending' | roleId }
   const selections = {};
-  // 新規取得札はデフォルト配置先未選択（ユーザー必須選択）
-  // ペンディング札はデフォルト「pending（保留維持）」
   for (const c of captures) selections[c.id] = null;
   for (const c of pendings) selections[c.id] = 'pending';
   
@@ -1664,6 +1675,11 @@ let pendingNewRoles = [];
 let selectedRoleIds = [];
 
 function showRoleModal(newRoleEntries) {
+  // 自分の手番でなければモーダルは出さない（視点切替時に開く）
+  if (state.currentPlayer !== myPlayerIndex) {
+    return;
+  }
+  
   pendingNewRoles = newRoleEntries;
   selectedRoleIds = newRoleEntries.map(r => r.role.id + (r.mode === 'upgrade' ? '_full' : ''));
   
@@ -1802,6 +1818,25 @@ function showKoikoiBanner() {
   const banner = document.getElementById('koikoiBanner');
   banner.classList.add('show');
   setTimeout(() => banner.classList.remove('show'), 1200);
+}
+
+// テスト用：視点を切り替える（オンライン化前の交互プレイ用）
+// ローカルテスト中は、視点を切り替えて両プレイヤーを操作する
+function switchViewpoint() {
+  myPlayerIndex = 1 - myPlayerIndex;
+  log(`視点を「${myPlayerIndex === 0 ? '一の人' : '二の人'}」に切り替えました。`);
+  
+  // 自分の手番で配置モーダルを開くべき状況なら開く
+  if (state.currentPlayer === myPlayerIndex && state.pendingCaptures.length > 0 && !document.getElementById('placeModal').classList.contains('active')) {
+    openPlaceModal();
+  }
+  
+  // 自分の手番で役モーダルを開くべき状況なら開く
+  if (state.currentPlayer === myPlayerIndex && pendingNewRoles && pendingNewRoles.length > 0 && !document.getElementById('roleModal').classList.contains('active')) {
+    showRoleModal(pendingNewRoles);
+  }
+  
+  render();
 }
 
 // ============================================================
@@ -1948,36 +1983,44 @@ function renderSlot(player, role) {
 }
 
 function render() {
-  document.getElementById('player1Area').classList.toggle('active', state.currentPlayer === 0 && !state.gameOver);
-  document.getElementById('player2Area').classList.toggle('active', state.currentPlayer === 1 && !state.gameOver);
+  const oppIdx = 1 - myPlayerIndex;
+  const isMyTurn = state.currentPlayer === myPlayerIndex && !state.gameOver;
+  const isOppTurn = state.currentPlayer === oppIdx && !state.gameOver;
   
-  // 手札（手番のプレイヤーは表向き）
-  const renderPlayerHand = (playerIdx, container) => {
-    container.innerHTML = '';
-    const isCurrent = state.currentPlayer === playerIdx && !state.gameOver;
-    state.players[playerIdx].hand.forEach(card => {
-      if (isCurrent) {
-        const clickable = (state.phase === 'play_hand' || state.phase === 'match_hand');
-        const isSelected = state.selectedHandCard && state.selectedHandCard.id === card.id;
-        const div = renderCard(card, {
-          selected: isSelected,
-          onClick: clickable ? () => selectHandCard(card.id) : null,
-        });
-        container.appendChild(div);
-      } else {
-        container.appendChild(renderCard(null, { faceDown: true }));
-      }
+  // アクティブ表示（手番のプレイヤー）
+  document.getElementById('selfArea').classList.toggle('active', isMyTurn);
+  document.getElementById('opponentArea').classList.toggle('active', isOppTurn);
+  
+  // プレイヤー名
+  document.getElementById('selfName').textContent = `自分（${myPlayerIndex === 0 ? '一の人' : '二の人'}）`;
+  document.getElementById('opponentName').textContent = `相手（${oppIdx === 0 ? '一の人' : '二の人'}）`;
+  
+  // 自分の手札（表向き、操作可能）
+  const selfHand = document.getElementById('selfHand');
+  selfHand.innerHTML = '';
+  state.players[myPlayerIndex].hand.forEach(card => {
+    const clickable = isMyTurn && (state.phase === 'play_hand' || state.phase === 'match_hand');
+    const isSelected = state.selectedHandCard && state.selectedHandCard.id === card.id;
+    const div = renderCard(card, {
+      selected: isSelected,
+      onClick: clickable ? () => selectHandCard(card.id) : null,
     });
-  };
-  renderPlayerHand(0, document.getElementById('p1Hand'));
-  renderPlayerHand(1, document.getElementById('p2Hand'));
+    selfHand.appendChild(div);
+  });
   
-  // 場札
+  // 相手の手札（裏向き、枚数のみ）
+  const opponentHand = document.getElementById('opponentHand');
+  opponentHand.innerHTML = '';
+  state.players[oppIdx].hand.forEach(() => {
+    opponentHand.appendChild(renderCard(null, { faceDown: true }));
+  });
+  
+  // 場札（自分の手番のときのみクリック可）
   const fieldCards = document.getElementById('fieldCards');
   fieldCards.innerHTML = '';
   state.field.forEach(card => {
     let matchable = false;
-    if ((state.phase === 'match_hand' || state.phase === 'match_draw') && !state.gameOver) {
+    if (isMyTurn && (state.phase === 'match_hand' || state.phase === 'match_draw')) {
       const ref = state.phase === 'match_hand' ? state.selectedHandCard : state.drawnCard;
       if (ref && canMatch(ref, card)) matchable = true;
     }
@@ -2000,36 +2043,39 @@ function render() {
   }
   
   // 得点
-  document.getElementById('p1Score').textContent = state.players[0].score;
-  document.getElementById('p2Score').textContent = state.players[1].score;
+  document.getElementById('selfScore').textContent = state.players[myPlayerIndex].score;
+  document.getElementById('opponentScore').textContent = state.players[oppIdx].score;
   
-  // スロット表示（自プレイヤーは詳細表示、相手は1枚以上配置されたものだけ表示）
-  ['p1Slots', 'p2Slots'].forEach((id, idx) => {
-    const div = document.getElementById(id);
+  // スロット表示
+  const renderSlots = (containerId, playerIdx) => {
+    const div = document.getElementById(containerId);
     div.innerHTML = '';
-    const player = state.players[idx];
+    const player = state.players[playerIdx];
     for (const role of ROLES) {
       if (!hasSlot(player, role.id)) continue;
       const progress = slotProgress(player, role.id);
       if (progress.filled === 0) continue;
       div.appendChild(renderSlot(player, role));
     }
-  });
+  };
+  renderSlots('selfSlots', myPlayerIndex);
+  renderSlots('opponentSlots', oppIdx);
   
-  // ペンディング表示（オンライン対戦想定で常に表向き）
-  ['p1Pending', 'p2Pending'].forEach((id, idx) => {
-    const div = document.getElementById(id);
+  // ペンディング表示
+  const renderPending = (containerId, playerIdx) => {
+    const div = document.getElementById(containerId);
     div.innerHTML = '';
-    const player = state.players[idx];
-    player.pending.forEach(card => {
+    state.players[playerIdx].pending.forEach(card => {
       div.appendChild(renderCard(card, {}));
     });
-  });
+  };
+  renderPending('selfPending', myPlayerIndex);
+  renderPending('opponentPending', oppIdx);
   
-  // アクションバー
+  // アクションバー（自分の手番のときのみ）
   const actionBar = document.getElementById('actionBar');
   actionBar.innerHTML = '';
-  if (state.phase === 'match_hand' && state.selectedHandCard && !state.gameOver) {
+  if (isMyTurn && state.phase === 'match_hand' && state.selectedHandCard) {
     const card = state.selectedHandCard;
     const matches = findMatches(card, state.field);
     if (matches.length === 0) {
@@ -2059,10 +2105,15 @@ function render() {
       cancelBtn.onclick = () => selectHandCard(card.id);
       actionBar.appendChild(cancelBtn);
     }
-  } else if (state.phase === 'match_draw' && state.drawnCard && !state.gameOver) {
+  } else if (isMyTurn && state.phase === 'match_draw' && state.drawnCard) {
     const info = document.createElement('span');
     info.className = 'action-info';
     info.textContent = `めくり札 ${state.drawnCard.symbol} で取る場札を選んでください。`;
+    actionBar.appendChild(info);
+  } else if (isOppTurn) {
+    const info = document.createElement('span');
+    info.className = 'action-info';
+    info.textContent = '相手の手番です。お待ちください...';
     actionBar.appendChild(info);
   }
   
