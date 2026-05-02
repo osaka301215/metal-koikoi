@@ -1825,7 +1825,8 @@ function confirmKoikoi() {
   pendingNewRoles = [];
   selectedRoleIds = [];
   
-  setTimeout(() => endTurn(), 1500);
+  // 即座にターン終了（バナーは並行で表示される）
+  endTurn();
 }
 
 function showKoikoiBanner() {
