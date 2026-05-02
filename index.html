@@ -200,6 +200,39 @@ main {
   margin: 4px 0;
 }
 
+#fieldCards.place-target {
+  background: rgba(184, 74, 62, 0.12);
+  border: 2px dashed var(--vermilion);
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  min-height: 70px;
+  padding: 4px;
+  animation: placeTargetPulse 1.5s ease-in-out infinite;
+}
+
+#fieldCards.place-target::after {
+  content: "ここをクリックで場に置く";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--vermilion);
+  font-size: 0.75rem;
+  font-family: 'Shippori Mincho', serif;
+  letter-spacing: 0.2em;
+  pointer-events: none;
+  background: rgba(26, 20, 16, 0.85);
+  padding: 4px 12px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+@keyframes placeTargetPulse {
+  0%, 100% { background: rgba(184, 74, 62, 0.12); }
+  50% { background: rgba(184, 74, 62, 0.25); }
+}
+
 .field-area::before {
   content: "場";
   position: absolute;
@@ -1013,7 +1046,7 @@ aside h2 {
       <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em;" onclick="startGame('pvp')">
         2人対戦（同じ画面）
       </button>
-      <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em; background: var(--moss); border-color: var(--moss);" onclick="startGame('cpu')">
+      <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em; background: var(--moss); border-color: var(--moss);" onclick="openCpuSetup()">
         CPU対戦
       </button>
       <button style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em;" disabled title="今後実装予定">
@@ -1022,6 +1055,41 @@ aside h2 {
     </div>
     <div style="margin-top: 24px;">
       <button onclick="toggleHelp()" style="font-size: 0.85rem;">遊び方</button>
+    </div>
+  </div>
+</div>
+
+<!-- CPU設定画面 -->
+<div class="modal-overlay" id="cpuSetupScreen" style="background: var(--bg-deep);">
+  <div style="text-align: center; max-width: 500px; width: 90%;">
+    <div style="font-family: 'Shippori Mincho', serif; font-size: 1.6rem; color: var(--gold-bright); letter-spacing: 0.3em; margin-bottom: 8px; font-weight: 700;">
+      C P U 対 戦
+    </div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--gold); letter-spacing: 0.3em; opacity: 0.7; margin-bottom: 24px;">
+      DIFFICULTY · 難 易 度
+    </div>
+    
+    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 320px; margin: 0 auto 20px;">
+      <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--moss); border-color: var(--moss);" onclick="startCpuGame('weak')">
+        弱
+      </button>
+      <button disabled style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em;">
+        並（工事中）
+      </button>
+      <button disabled style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em;">
+        強（工事中）
+      </button>
+      <button disabled style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em;">
+        鬼（工事中）
+      </button>
+    </div>
+    
+    <div style="font-size: 0.8rem; color: var(--gold); opacity: 0.7; margin-bottom: 20px; line-height: 1.6;">
+      <div><strong style="color: var(--gold-bright);">弱</strong>: ランダムに手を打つ初心者向け</div>
+    </div>
+    
+    <div>
+      <button onclick="closeCpuSetup()" style="font-size: 0.85rem;">メニューに戻る</button>
     </div>
   </div>
 </div>
@@ -1242,6 +1310,9 @@ let myPlayerIndex = 0;
 // ゲームモード： 'pvp' | 'cpu' | 'online'
 let gameMode = 'pvp';
 
+// CPU難易度: 'weak' | 'normal' | 'strong' | 'oni'
+let cpuDifficulty = 'weak';
+
 // ラウンド設定
 let totalRounds = 3;        // 全ラウンド数（メニューで選ぶ）
 let currentRound = 1;       // 現在何ラウンド目か
@@ -1255,16 +1326,36 @@ function selectRounds(n) {
   });
 }
 
+// CPU設定画面を開く
+function openCpuSetup() {
+  document.getElementById('startScreen').classList.remove('active');
+  document.getElementById('cpuSetupScreen').classList.add('active');
+}
+
+// CPU設定画面からメインメニューに戻る
+function closeCpuSetup() {
+  document.getElementById('cpuSetupScreen').classList.remove('active');
+  document.getElementById('startScreen').classList.add('active');
+}
+
+// CPU対戦ゲーム開始（難易度指定）
+function startCpuGame(difficulty) {
+  cpuDifficulty = difficulty;
+  document.getElementById('cpuSetupScreen').classList.remove('active');
+  startGame('cpu');
+}
+
 // ゲーム開始（メニューから呼ばれる）
 function startGame(mode) {
   gameMode = mode;
   myPlayerIndex = 0;
   currentRound = 1;
   cumulativeScores = [0, 0];
-  lastRoundWinner = null;  // 1ラウンド目は先攻決定演出
+  lastRoundWinner = null;
   
   // メニュー画面を閉じる
   document.getElementById('startScreen').classList.remove('active');
+  document.getElementById('cpuSetupScreen').classList.remove('active');
   
   // CPU対戦時は視点切替ボタンを隠す
   const vpBtn = document.getElementById('viewpointBtn');
@@ -1290,6 +1381,7 @@ function backToMenu() {
   hideModal('roleModal');
   hideModal('endModal');
   hideCeremonyOverlay();
+  document.getElementById('cpuSetupScreen').classList.remove('active');
   document.getElementById('startScreen').classList.add('active');
 }
 
@@ -2863,6 +2955,25 @@ function render() {
   // 場札（自分の手番のときのみクリック可）
   const fieldCards = document.getElementById('fieldCards');
   fieldCards.innerHTML = '';
+  
+  // マッチなしの手札を選んでいる時、場全体を「投入可能」状態にする
+  let canPlaceOnField = false;
+  if (isMyTurn && state.phase === 'match_hand' && state.selectedHandCard) {
+    const matches = findMatches(state.selectedHandCard, state.field);
+    if (matches.length === 0) {
+      canPlaceOnField = true;
+    }
+  }
+  fieldCards.classList.toggle('place-target', canPlaceOnField);
+  
+  // コンテナクリックで場に置く（空白でも札の上でも、空きスペースのクリックを取る）
+  fieldCards.onclick = canPlaceOnField ? (e) => {
+    // 札（.card）以外のところがクリックされたら投入
+    if (e.target === fieldCards || (e.target.closest && !e.target.closest('.card'))) {
+      placeSelectedCardOnField();
+    }
+  } : null;
+  
   state.field.forEach(card => {
     let matchable = false;
     if (isMyTurn && (state.phase === 'match_hand' || state.phase === 'match_draw')) {
