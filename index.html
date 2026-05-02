@@ -871,6 +871,30 @@ aside h2 {
   border-color: var(--vermilion);
 }
 
+.name-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: 'Shippori Mincho', serif;
+  font-size: 1rem;
+  background: var(--bg-mid);
+  color: var(--gold-bright);
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.name-input:focus {
+  border-color: var(--gold-bright);
+  background: var(--bg-deep);
+}
+
+.name-input::placeholder {
+  color: var(--ink-soft);
+  opacity: 0.7;
+}
+
 @media (max-width: 768px) {
   .card { width: 52px; height: 78px; }
   .card-symbol { font-size: 1.3rem; }
@@ -1043,7 +1067,7 @@ aside h2 {
     </div>
     
     <div style="display: flex; flex-direction: column; gap: 12px; max-width: 320px; margin: 0 auto;">
-      <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em;" onclick="startGame('pvp')">
+      <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em;" onclick="openPvpSetup()">
         2人対戦（同じ画面）
       </button>
       <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em; background: var(--moss); border-color: var(--moss);" onclick="openCpuSetup()">
@@ -1059,6 +1083,36 @@ aside h2 {
   </div>
 </div>
 
+<!-- PvP設定画面 -->
+<div class="modal-overlay" id="pvpSetupScreen" style="background: var(--bg-deep);">
+  <div style="text-align: center; max-width: 500px; width: 90%;">
+    <div style="font-family: 'Shippori Mincho', serif; font-size: 1.6rem; color: var(--gold-bright); letter-spacing: 0.3em; margin-bottom: 8px; font-weight: 700;">
+      2 人 対 戦
+    </div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--gold); letter-spacing: 0.3em; opacity: 0.7; margin-bottom: 24px;">
+      PLAYER NAMES
+    </div>
+    
+    <div style="display: flex; flex-direction: column; gap: 16px; max-width: 320px; margin: 0 auto 20px;">
+      <div style="text-align: left;">
+        <div style="font-size: 0.75rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 4px;">プレイヤー1（先攻になる可能性あり）</div>
+        <input type="text" id="pvpName1Input" maxlength="10" placeholder="一の人" class="name-input">
+      </div>
+      <div style="text-align: left;">
+        <div style="font-size: 0.75rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 4px;">プレイヤー2</div>
+        <input type="text" id="pvpName2Input" maxlength="10" placeholder="二の人" class="name-input">
+      </div>
+    </div>
+    
+    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 320px; margin: 0 auto;">
+      <button class="primary" style="padding: 12px; font-size: 0.95rem; letter-spacing: 0.2em;" onclick="startPvpGame()">
+        対戦開始
+      </button>
+      <button onclick="closePvpSetup()" style="font-size: 0.85rem;">メニューに戻る</button>
+    </div>
+  </div>
+</div>
+
 <!-- CPU設定画面 -->
 <div class="modal-overlay" id="cpuSetupScreen" style="background: var(--bg-deep);">
   <div style="text-align: center; max-width: 500px; width: 90%;">
@@ -1069,9 +1123,14 @@ aside h2 {
       DIFFICULTY · 難 易 度
     </div>
     
+    <div style="max-width: 320px; margin: 0 auto 20px; text-align: left;">
+      <div style="font-size: 0.75rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 4px;">あなたの名前</div>
+      <input type="text" id="cpuName1Input" maxlength="10" placeholder="あなた" class="name-input">
+    </div>
+    
     <div style="display: flex; flex-direction: column; gap: 8px; max-width: 320px; margin: 0 auto 20px;">
       <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--moss); border-color: var(--moss);" onclick="startCpuGame('weak')">
-        弱
+        弱 と対戦
       </button>
       <button disabled style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em;">
         並（工事中）
@@ -1232,7 +1291,7 @@ const ROLES = [
   { id: 'ammonia',       name: 'アンモニア錯体',    elements: ['Cu','Ag','Zn'], points: 5, formula: 'Cu + Ag + Zn' },
   { id: 'flame',         name: '炎色反応',          elements: ['Li','Na','K','Cu','Ca','Ba'], points: 5, formula: '3つで5点・全6つで10点', extensible: true, completePoints: 10 },
   { id: 'copper_alloy',  name: '銅合金',            elements: ['Cu','Zn','Sn','Ni'], points: 7, formula: 'Cu + Zn + Sn + Ni' },
-  { id: 'amphoteric',    name: '両性元素',          elements: ['Al','Zn','Sn','Pb'], points: 7, formula: 'Al + Zn + Sn + Pb' },
+  { id: 'amphoteric',    name: '両性金属',          elements: ['Al','Zn','Sn','Pb'], points: 7, formula: 'Al + Zn + Sn + Pb' },
   { id: 'noble',         name: '貴金属',            elements: ['Au','Pt','Ag'], points: 5, formula: 'Au + Pt + Ag' },
 ];
 
@@ -1313,17 +1372,49 @@ let gameMode = 'pvp';
 // CPU難易度: 'weak' | 'normal' | 'strong' | 'oni'
 let cpuDifficulty = 'weak';
 
-// ラウンド設定
-let totalRounds = 3;        // 全ラウンド数（メニューで選ぶ）
-let currentRound = 1;       // 現在何ラウンド目か
-let cumulativeScores = [0, 0]; // 累計得点
+// プレイヤー名 (state.players[0]/1 に対応)
+let playerNames = ['一の人', '二の人'];
 
-// メニューでラウンド数を選択
+const CPU_DIFFICULTY_LABEL = {
+  weak: 'CPU(弱)',
+  normal: 'CPU(並)',
+  strong: 'CPU(強)',
+  oni: 'CPU(鬼)',
+};
+
+// ラウンド設定
+let totalRounds = 3;
+let currentRound = 1;
+let cumulativeScores = [0, 0];
+
 function selectRounds(n) {
   totalRounds = n;
   document.querySelectorAll('.round-btn').forEach(btn => {
     btn.classList.toggle('selected', parseInt(btn.dataset.rounds) === n);
   });
+}
+
+// 2人対戦設定画面を開く
+function openPvpSetup() {
+  document.getElementById('startScreen').classList.remove('active');
+  document.getElementById('pvpSetupScreen').classList.add('active');
+}
+
+function closePvpSetup() {
+  document.getElementById('pvpSetupScreen').classList.remove('active');
+  document.getElementById('startScreen').classList.add('active');
+}
+
+// 2人対戦ゲーム開始
+function startPvpGame() {
+  const n1 = (document.getElementById('pvpName1Input').value || '').trim();
+  const n2 = (document.getElementById('pvpName2Input').value || '').trim();
+  playerNames = [
+    n1 || '一の人',
+    n2 || '二の人',
+  ];
+  document.getElementById('pvpSetupScreen').classList.remove('active');
+  startGame('pvp');
 }
 
 // CPU設定画面を開く
@@ -1332,15 +1423,18 @@ function openCpuSetup() {
   document.getElementById('cpuSetupScreen').classList.add('active');
 }
 
-// CPU設定画面からメインメニューに戻る
 function closeCpuSetup() {
   document.getElementById('cpuSetupScreen').classList.remove('active');
   document.getElementById('startScreen').classList.add('active');
 }
 
-// CPU対戦ゲーム開始（難易度指定）
 function startCpuGame(difficulty) {
   cpuDifficulty = difficulty;
+  const n1 = (document.getElementById('cpuName1Input').value || '').trim();
+  playerNames = [
+    n1 || 'あなた',
+    CPU_DIFFICULTY_LABEL[difficulty] || 'CPU',
+  ];
   document.getElementById('cpuSetupScreen').classList.remove('active');
   startGame('cpu');
 }
@@ -1353,8 +1447,9 @@ function startGame(mode) {
   cumulativeScores = [0, 0];
   lastRoundWinner = null;
   
-  // メニュー画面を閉じる
+  // メニュー系画面をすべて閉じる
   document.getElementById('startScreen').classList.remove('active');
+  document.getElementById('pvpSetupScreen').classList.remove('active');
   document.getElementById('cpuSetupScreen').classList.remove('active');
   
   // CPU対戦時は視点切替ボタンを隠す
@@ -1527,7 +1622,7 @@ function finishFirstPlayerCeremony(cardA, cardB, onDone) {
   
   state.ceremonyDraw = null;
   hideCeremonyOverlay();
-  log(`${firstPlayer === 0 ? '一の人' : (gameMode === 'cpu' ? 'CPU' : '二の人')}の先攻！`);
+  log(`${playerNames[firstPlayer]}の先攻！`);
   onDone();
 }
 
@@ -1562,7 +1657,7 @@ function runFieldRevealCeremony(onDone) {
 
 function startActualGame() {
   state.phase = 'play_hand';
-  log(`${state.currentPlayer === 0 ? '一の人' : (gameMode === 'cpu' ? 'CPU' : '二の人')}の番です。`);
+  log(`${playerNames[state.currentPlayer]}の番です。`);
   render();
   scheduleCpuTurnIfNeeded();
 }
@@ -1846,7 +1941,7 @@ function openPlaceModal() {
 
 function renderPlaceModal() {
   const player = state.players[state.currentPlayer];
-  const playerName = state.currentPlayer === 0 ? '一の人' : '二の人';
+  const playerName = playerNames[state.currentPlayer];
   document.getElementById('placeModalTitle').textContent = `${playerName} 札を獲得`;
   
   // 取得した札の表示と配置先選択
@@ -2191,7 +2286,7 @@ function showRoleModal(newRoleEntries) {
   pendingNewRoles = newRoleEntries;
   selectedRoleIds = newRoleEntries.map(r => r.role.id + (r.mode === 'upgrade' ? '_full' : ''));
   
-  const playerName = state.currentPlayer === 0 ? '一の人' : '二の人';
+  const playerName = playerNames[state.currentPlayer];
   document.getElementById('roleModalTitle').textContent = `${playerName} 役成立`;
   document.getElementById('roleModalSubtitle').textContent = '上がる役を選んでください（複数選択可）';
   
@@ -2294,7 +2389,7 @@ function confirmAgari() {
   pendingNewRoles = [];
   selectedRoleIds = [];
   
-  const playerName = state.currentPlayer === 0 ? '一の人' : '二の人';
+  const playerName = playerNames[state.currentPlayer];
   showEndScreen(`${playerName}の上がり！`, `${announcedNames.join('、')} ${bonusText} で ${points}点`);
 }
 
@@ -2341,7 +2436,7 @@ function showKoikoiBanner() {
 // ローカルテスト中は、視点を切り替えて両プレイヤーを操作する
 function switchViewpoint() {
   myPlayerIndex = 1 - myPlayerIndex;
-  log(`視点を「${myPlayerIndex === 0 ? '一の人' : '二の人'}」に切り替えました。`);
+  log(`視点を「${playerNames[myPlayerIndex]}」に切り替えました。`);
   
   // 自分の手番で配置モーダルを開くべき状況なら開く
   if (state.currentPlayer === myPlayerIndex && state.pendingCaptures.length > 0 && !document.getElementById('placeModal').classList.contains('active')) {
@@ -2372,7 +2467,7 @@ function endTurn() {
   state.currentPlayer = 1 - state.currentPlayer;
   state.phase = 'play_hand';
   state.selectedHandCard = null;
-  log(`${state.currentPlayer === 0 ? '一' : '二'}の人の番です。`);
+  log(`${playerNames[state.currentPlayer]}の番です。`);
   render();
   
   // CPUの手番ならCPUを起動
@@ -2413,9 +2508,9 @@ function finishCurrentRound(cause, agariInfo) {
   } else {
     // 手札切れ、引き分け
     if (state.players[0].score > state.players[1].score) {
-      title = '一の人がラウンド勝利';
+      title = `${playerNames[0]} がラウンド勝利`;
     } else if (state.players[1].score > state.players[0].score) {
-      title = (gameMode === 'cpu') ? 'CPUがラウンド勝利' : '二の人がラウンド勝利';
+      title = `${playerNames[1]} がラウンド勝利`;
     } else {
       title = '引き分け';
     }
@@ -2430,7 +2525,6 @@ function showRoundEndScreen(title, subtitle, isFinalRound) {
     ? '最終結果' 
     : `${currentRound}/${totalRounds} ラウンド終了`;
   
-  const opponentLabel = (gameMode === 'cpu') ? 'CPU' : '二の人';
   let html = '';
   
   if (!isFinalRound) {
@@ -2438,22 +2532,22 @@ function showRoundEndScreen(title, subtitle, isFinalRound) {
     html += `<div style="margin-bottom: 12px; color: var(--gold-bright); font-weight: 700;">${title}</div>`;
     if (subtitle) html += `<div style="margin-bottom: 16px; font-size: 0.9rem;">${subtitle}</div>`;
     html += `<div style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; line-height: 1.8;">`;
-    html += `<div>一の人: 今R ${state.players[0].score} 点 / 累計 <span style="color: var(--vermilion); font-weight: 700;">${cumulativeScores[0]}</span> 点</div>`;
-    html += `<div>${opponentLabel}: 今R ${state.players[1].score} 点 / 累計 <span style="color: var(--vermilion); font-weight: 700;">${cumulativeScores[1]}</span> 点</div>`;
+    html += `<div>${playerNames[0]}: 今R ${state.players[0].score} 点 / 累計 <span style="color: var(--vermilion); font-weight: 700;">${cumulativeScores[0]}</span> 点</div>`;
+    html += `<div>${playerNames[1]}: 今R ${state.players[1].score} 点 / 累計 <span style="color: var(--vermilion); font-weight: 700;">${cumulativeScores[1]}</span> 点</div>`;
     html += `</div>`;
   } else {
     // 最終ラウンド：総合勝者発表
     html += `<div style="margin-bottom: 12px; font-size: 0.9rem;">${title}</div>`;
     html += `<div style="font-family: 'JetBrains Mono', monospace; font-size: 1rem; line-height: 1.8; margin: 16px 0;">`;
-    html += `<div>一の人: 累計 <span style="color: var(--gold-bright); font-weight: 700;">${cumulativeScores[0]}</span> 点</div>`;
-    html += `<div>${opponentLabel}: 累計 <span style="color: var(--gold-bright); font-weight: 700;">${cumulativeScores[1]}</span> 点</div>`;
+    html += `<div>${playerNames[0]}: 累計 <span style="color: var(--gold-bright); font-weight: 700;">${cumulativeScores[0]}</span> 点</div>`;
+    html += `<div>${playerNames[1]}: 累計 <span style="color: var(--gold-bright); font-weight: 700;">${cumulativeScores[1]}</span> 点</div>`;
     html += `</div>`;
     
     let winnerText;
     if (cumulativeScores[0] > cumulativeScores[1]) {
-      winnerText = '一の人の勝利！';
+      winnerText = `${playerNames[0]} の勝利！`;
     } else if (cumulativeScores[1] > cumulativeScores[0]) {
-      winnerText = (gameMode === 'cpu') ? 'CPUの勝利' : '二の人の勝利！';
+      winnerText = `${playerNames[1]} の勝利！`;
     } else {
       winnerText = '引き分け';
     }
@@ -2473,7 +2567,7 @@ function showRoundEndScreen(title, subtitle, isFinalRound) {
         if (!r) return id;
         return r.name + (id.endsWith('_full') ? '（完全）' : '');
       }).join('、');
-      const label = i === 0 ? '一の人' : opponentLabel;
+      const label = playerNames[i];
       rolesDiv.innerHTML += `<div style="margin: 6px 0; font-size: 0.85rem;"><strong>${label}</strong>の役: ${names}</div>`;
     }
   });
@@ -2549,7 +2643,7 @@ function cpuPlayHand() {
   
   // ランダムに手札を1枚選ぶ
   const handCard = cpu.hand[Math.floor(Math.random() * cpu.hand.length)];
-  log(`CPU: ${handCard.symbol} を出します。`);
+  log(`${playerNames[1]}: ${handCard.symbol} を出します。`);
   
   // 場とのマッチをチェック
   const matches = findMatches(handCard, state.field);
@@ -2558,7 +2652,7 @@ function cpuPlayHand() {
     // 場に置く
     cpu.hand = cpu.hand.filter(c => c.id !== handCard.id);
     state.field.push(handCard);
-    log(`CPU: ${handCard.symbol} を場に置きました。`);
+    log(`${playerNames[1]}: ${handCard.symbol} を場に置きました。`);
     render();
     
     cpuActionTimer = setTimeout(() => {
@@ -2571,7 +2665,7 @@ function cpuPlayHand() {
     cpu.hand = cpu.hand.filter(c => c.id !== handCard.id);
     state.field = state.field.filter(c => c.id !== fieldCard.id);
     state.pendingCaptures.push(handCard, fieldCard);
-    log(`CPU: ${handCard.symbol} で場の ${fieldCard.symbol} を取りました。`);
+    log(`${playerNames[1]}: ${handCard.symbol} で場の ${fieldCard.symbol} を取りました。`);
     render();
     
     cpuActionTimer = setTimeout(() => {
@@ -2593,7 +2687,7 @@ function cpuDrawFromDeck() {
   const drawn = state.deck.pop();
   state.drawnCard = drawn;
   const matches = findMatches(drawn, state.field);
-  log(`CPU: 山札から ${drawn.symbol}。`);
+  log(`${playerNames[1]}: 山札から ${drawn.symbol}。`);
   render();
   
   cpuActionTimer = setTimeout(() => {
@@ -2602,7 +2696,7 @@ function cpuDrawFromDeck() {
       // 場に置く
       state.field.push(drawn);
       state.drawnCard = null;
-      log(`CPU: ${drawn.symbol} を場に置きました。`);
+      log(`${playerNames[1]}: ${drawn.symbol} を場に置きました。`);
       render();
       cpuActionTimer = setTimeout(() => {
         cpuActionTimer = null;
@@ -2614,7 +2708,7 @@ function cpuDrawFromDeck() {
       state.field = state.field.filter(c => c.id !== fieldCard.id);
       state.pendingCaptures.push(drawn, fieldCard);
       state.drawnCard = null;
-      log(`CPU: 山札の ${drawn.symbol} で場の ${fieldCard.symbol} を取りました。`);
+      log(`${playerNames[1]}: 山札の ${drawn.symbol} で場の ${fieldCard.symbol} を取りました。`);
       render();
       cpuActionTimer = setTimeout(() => {
         cpuActionTimer = null;
@@ -2660,7 +2754,7 @@ function cpuFinishCaptures() {
     placeCardInSlot(cpu, card, role.id);
     placedSet.add(card.id);
     placedCount++;
-    log(`CPU: ${card.symbol} を「${role.name}」に配置。`);
+    log(`${playerNames[1]}: ${card.symbol} を「${role.name}」に配置。`);
   }
   
   // 残りはペンディングへ
@@ -2747,8 +2841,8 @@ function cpuCheckRoles() {
       bonusText = `（こいこい${cpu.koikoiCount}回 +${bonus}点）`;
     }
     cpu.score += points;
-    log(`CPU: ${announcedNames.join('、')} ${bonusText} で上がり！${points}点`);
-    showEndScreen(`CPUの上がり！`, `${announcedNames.join('、')} ${bonusText} で ${points}点`);
+    log(`${playerNames[1]}: ${announcedNames.join('、')} ${bonusText} で上がり！${points}点`);
+    showEndScreen(`${playerNames[1]}の上がり！`, `${announcedNames.join('、')} ${bonusText} で ${points}点`);
   } else {
     // こいこい処理
     for (const entry of newRoles) {
@@ -2761,7 +2855,7 @@ function cpuCheckRoles() {
     cpu.koikoi = true;
     cpu.koikoiCount += 1;
     const names = newRoles.map(e => e.role.name + (e.mode === 'upgrade' ? '（完全）' : '')).join('、');
-    log(`CPU: ${names} 確定。こいこい！(${cpu.koikoiCount}回目)`);
+    log(`${playerNames[1]}: ${names} 確定。こいこい！(${cpu.koikoiCount}回目)`);
     showKoikoiBanner();
     endTurn();
   }
@@ -2772,8 +2866,8 @@ function cpuCheckRoles() {
 // ============================================================
 function showCeremonyOverlay() {
   // ラベル更新
-  document.getElementById('ceremonyLabelA').textContent = '一の人';
-  document.getElementById('ceremonyLabelB').textContent = (gameMode === 'cpu') ? 'CPU' : '二の人';
+  document.getElementById('ceremonyLabelA').textContent = playerNames[0];
+  document.getElementById('ceremonyLabelB').textContent = playerNames[1];
   document.getElementById('ceremonyResult').textContent = '';
   
   document.getElementById('ceremonyOverlay').classList.add('active');
@@ -2809,12 +2903,11 @@ function renderCeremonyOverlay() {
   if (state.ceremonyDraw.decided) {
     const a = state.ceremonyDraw.cardA;
     const b = state.ceremonyDraw.cardB;
-    const oppLabel = (gameMode === 'cpu') ? 'CPU' : '二の人';
     let txt;
     if (a.atomicNumber > b.atomicNumber) {
-      txt = `${a.symbol}(${a.atomicNumber}) > ${b.symbol}(${b.atomicNumber}) → 一の人の先攻`;
+      txt = `${a.symbol}(${a.atomicNumber}) > ${b.symbol}(${b.atomicNumber}) → ${playerNames[0]} の先攻`;
     } else if (b.atomicNumber > a.atomicNumber) {
-      txt = `${b.symbol}(${b.atomicNumber}) > ${a.symbol}(${a.atomicNumber}) → ${oppLabel}の先攻`;
+      txt = `${b.symbol}(${b.atomicNumber}) > ${a.symbol}(${a.atomicNumber}) → ${playerNames[1]} の先攻`;
     } else {
       txt = '同点 → ランダム決定';
     }
@@ -2927,10 +3020,8 @@ function render() {
   document.getElementById('opponentArea').classList.toggle('active', isOppTurn);
   
   // プレイヤー名
-  document.getElementById('selfName').textContent = `自分（${myPlayerIndex === 0 ? '一の人' : '二の人'}）`;
-  document.getElementById('opponentName').textContent = gameMode === 'cpu' 
-    ? 'CPU' 
-    : `相手（${oppIdx === 0 ? '一の人' : '二の人'}）`;
+  document.getElementById('selfName').textContent = playerNames[myPlayerIndex];
+  document.getElementById('opponentName').textContent = playerNames[oppIdx];
   
   // 自分の手札（表向き、操作可能）
   const selfHand = document.getElementById('selfHand');
@@ -3069,7 +3160,9 @@ function render() {
   } else if (isOppTurn) {
     const info = document.createElement('span');
     info.className = 'action-info';
-    info.textContent = gameMode === 'cpu' ? 'CPUが考えています...' : '相手の手番です。お待ちください...';
+    info.textContent = gameMode === 'cpu' 
+      ? `${playerNames[1]} が考えています...` 
+      : `${playerNames[oppIdx]} の手番です。お待ちください...`;
     actionBar.appendChild(info);
   }
   
