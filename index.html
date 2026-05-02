@@ -969,6 +969,11 @@ aside h2 {
   opacity: 0.7;
 }
 </style>
+
+<!-- Firebase SDK（v9 compat版） -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
 </head>
 <body>
 
@@ -1070,8 +1075,8 @@ aside h2 {
       <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em; background: var(--moss); border-color: var(--moss);" onclick="openCpuSetup()">
         CPU対戦
       </button>
-      <button style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em;" disabled title="今後実装予定">
-        オンライン対戦（準備中）
+      <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em; background: var(--bg-mid); color: var(--gold-bright); border-color: var(--gold);" onclick="openOnlineSetup()">
+        オンライン対戦
       </button>
     </div>
     <div style="margin-top: 24px;">
@@ -1146,6 +1151,93 @@ aside h2 {
     
     <div>
       <button onclick="closeCpuSetup()" style="font-size: 0.85rem;">メニューに戻る</button>
+    </div>
+  </div>
+</div>
+
+<!-- オンライン対戦：モード選択画面（作成 or 参加） -->
+<div class="modal-overlay" id="onlineSetupScreen" style="background: var(--bg-deep);">
+  <div style="text-align: center; max-width: 500px; width: 90%;">
+    <div style="font-family: 'Shippori Mincho', serif; font-size: 1.6rem; color: var(--gold-bright); letter-spacing: 0.3em; margin-bottom: 8px; font-weight: 700;">
+      オンライン対戦
+    </div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--gold); letter-spacing: 0.3em; opacity: 0.7; margin-bottom: 24px;">
+      ROOM · 部 屋
+    </div>
+    
+    <div style="max-width: 320px; margin: 0 auto 20px; text-align: left;">
+      <div style="font-size: 0.75rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 4px;">あなたの名前</div>
+      <input type="text" id="onlineNameInput" maxlength="10" placeholder="あなた" class="name-input">
+    </div>
+    
+    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 320px; margin: 0 auto 20px;">
+      <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em;" onclick="createRoom()">
+        ルームを作る
+      </button>
+      <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--moss); border-color: var(--moss);" onclick="openRoomJoin()">
+        ルームに参加
+      </button>
+    </div>
+    
+    <div>
+      <button onclick="closeOnlineSetup()" style="font-size: 0.85rem;">メニューに戻る</button>
+    </div>
+  </div>
+</div>
+
+<!-- オンライン対戦：ルーム作成後の待機画面 -->
+<div class="modal-overlay" id="roomWaitScreen" style="background: var(--bg-deep);">
+  <div style="text-align: center; max-width: 500px; width: 90%;">
+    <div style="font-family: 'Shippori Mincho', serif; font-size: 1.4rem; color: var(--gold-bright); letter-spacing: 0.3em; margin-bottom: 8px; font-weight: 700;">
+      ルーム作成完了
+    </div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--gold); letter-spacing: 0.3em; opacity: 0.7; margin-bottom: 24px;">
+      WAITING FOR OPPONENT
+    </div>
+    
+    <div style="margin-bottom: 24px;">
+      <div style="font-size: 0.85rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 8px;">ルームコード</div>
+      <div id="roomCodeDisplay" style="font-family: 'JetBrains Mono', monospace; font-size: 2.4rem; font-weight: 700; letter-spacing: 0.4em; color: var(--vermilion); padding: 16px; background: var(--bg-mid); border: 2px solid var(--vermilion); border-radius: 4px; margin: 0 auto; max-width: 280px;">
+        ------
+      </div>
+      <div style="font-size: 0.8rem; color: var(--gold); opacity: 0.8; margin-top: 12px; line-height: 1.6;">
+        このコードを相手に伝えてください<br>
+        相手が参加すると自動でゲームが始まります
+      </div>
+    </div>
+    
+    <div style="font-size: 0.85rem; color: var(--gold-bright); margin-bottom: 16px;" id="roomWaitStatus">
+      相手の参加を待っています...
+    </div>
+    
+    <div>
+      <button onclick="cancelRoom()" style="font-size: 0.85rem;">ルームをキャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- オンライン対戦：ルーム参加画面 -->
+<div class="modal-overlay" id="roomJoinScreen" style="background: var(--bg-deep);">
+  <div style="text-align: center; max-width: 500px; width: 90%;">
+    <div style="font-family: 'Shippori Mincho', serif; font-size: 1.4rem; color: var(--gold-bright); letter-spacing: 0.3em; margin-bottom: 8px; font-weight: 700;">
+      ルームに参加
+    </div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--gold); letter-spacing: 0.3em; opacity: 0.7; margin-bottom: 24px;">
+      JOIN ROOM
+    </div>
+    
+    <div style="max-width: 320px; margin: 0 auto 20px; text-align: left;">
+      <div style="font-size: 0.75rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 4px;">ルームコード（6桁）</div>
+      <input type="text" id="roomCodeInput" maxlength="6" placeholder="A4B7K9" class="name-input" style="font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; letter-spacing: 0.3em; text-align: center; text-transform: uppercase;">
+    </div>
+    
+    <div id="roomJoinStatus" style="font-size: 0.85rem; color: var(--vermilion); margin-bottom: 16px; min-height: 24px;"></div>
+    
+    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 320px; margin: 0 auto 16px;">
+      <button class="primary" style="padding: 12px; font-size: 0.95rem; letter-spacing: 0.2em;" onclick="joinRoom()">
+        参加する
+      </button>
+      <button onclick="closeRoomJoin()" style="font-size: 0.85rem;">戻る</button>
     </div>
   </div>
 </div>
@@ -1248,6 +1340,23 @@ aside h2 {
 </div>
 
 <script>
+// ============================================================
+// Firebase 初期化
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyBZkxSLly5udBbaAJha0K2VgUQdbWRrE50",
+  authDomain: "metal-koikoi.firebaseapp.com",
+  databaseURL: "https://metal-koikoi-default-rtdb.firebaseio.com",
+  projectId: "metal-koikoi",
+  storageBucket: "metal-koikoi.firebasestorage.app",
+  messagingSenderId: "443786326939",
+  appId: "1:443786326939:web:0c15e3d5ea5540f35e273e"
+};
+
+// Firebase アプリ初期化（compat版なのでグローバル firebase でアクセス可）
+firebase.initializeApp(firebaseConfig);
+const fbDb = firebase.database();
+
 // ============================================================
 // 元素データ
 // ============================================================
@@ -1436,6 +1545,232 @@ function startCpuGame(difficulty) {
   startGame('cpu');
 }
 
+// ============================================================
+// オンライン対戦
+// ============================================================
+
+// 現在接続中のルーム情報
+let currentRoom = null; // { code, role: 'host'|'guest', ref: firebase.Reference }
+let roomListenerUnsubscribe = null; // ルームの監視解除関数
+
+// オンライン設定画面を開く
+function openOnlineSetup() {
+  document.getElementById('startScreen').classList.remove('active');
+  document.getElementById('onlineSetupScreen').classList.add('active');
+}
+
+function closeOnlineSetup() {
+  document.getElementById('onlineSetupScreen').classList.remove('active');
+  document.getElementById('startScreen').classList.add('active');
+}
+
+// 6桁のルームコードを生成（紛らわしい文字を除外: 0/O, 1/I, など）
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 0,1,O,Iを除外
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+// ルームを作る（ホスト側）
+async function createRoom() {
+  const name = (document.getElementById('onlineNameInput').value || '').trim() || 'あなた';
+  
+  // ユニークなルームコードを生成（既存のコードと衝突しないことを確認）
+  let code = null;
+  let attempts = 0;
+  while (attempts < 5) {
+    const candidate = generateRoomCode();
+    try {
+      const snap = await fbDb.ref(`rooms/${candidate}`).once('value');
+      if (!snap.exists()) {
+        code = candidate;
+        break;
+      }
+    } catch (e) {
+      console.error('ルームコード重複チェック失敗', e);
+      alert('Firebase に接続できませんでした。ネットワーク接続を確認してください。');
+      return;
+    }
+    attempts++;
+  }
+  if (!code) {
+    alert('ルームコードの生成に失敗しました。もう一度お試しください。');
+    return;
+  }
+  
+  // ルーム情報をFirebaseに作成
+  const roomRef = fbDb.ref(`rooms/${code}`);
+  const roomData = {
+    code: code,
+    status: 'waiting', // waiting | playing | finished
+    createdAt: firebase.database.ServerValue.TIMESTAMP,
+    host: {
+      name: name,
+      joined: true,
+    },
+    guest: {
+      name: null,
+      joined: false,
+    },
+  };
+  
+  try {
+    await roomRef.set(roomData);
+  } catch (e) {
+    console.error('ルーム作成失敗', e);
+    alert('ルーム作成に失敗しました: ' + e.message);
+    return;
+  }
+  
+  // ブラウザ閉じたら自動でルーム削除（disconnect handler）
+  roomRef.onDisconnect().remove();
+  
+  currentRoom = {
+    code: code,
+    role: 'host',
+    ref: roomRef,
+    myName: name,
+  };
+  
+  // 待機画面を表示
+  document.getElementById('onlineSetupScreen').classList.remove('active');
+  document.getElementById('roomCodeDisplay').textContent = code;
+  document.getElementById('roomWaitStatus').textContent = '相手の参加を待っています...';
+  document.getElementById('roomWaitScreen').classList.add('active');
+  
+  // ゲスト参加を監視
+  const guestListener = roomRef.child('guest').on('value', (snap) => {
+    const guest = snap.val();
+    if (guest && guest.joined) {
+      document.getElementById('roomWaitStatus').textContent = `${guest.name} が参加！ゲームを開始します...`;
+      // 監視解除
+      roomRef.child('guest').off('value', guestListener);
+      // 1秒後にゲーム開始（host=プレイヤー0、guest=プレイヤー1）
+      setTimeout(() => startOnlineGame('host', currentRoom.myName, guest.name), 1000);
+    }
+  });
+}
+
+// ルーム参加画面を開く
+function openRoomJoin() {
+  document.getElementById('onlineSetupScreen').classList.remove('active');
+  document.getElementById('roomJoinScreen').classList.add('active');
+  document.getElementById('roomJoinStatus').textContent = '';
+  document.getElementById('roomCodeInput').value = '';
+}
+
+function closeRoomJoin() {
+  document.getElementById('roomJoinScreen').classList.remove('active');
+  document.getElementById('onlineSetupScreen').classList.add('active');
+}
+
+// ルームに参加（ゲスト側）
+async function joinRoom() {
+  const name = (document.getElementById('onlineNameInput').value || '').trim() || 'あなた';
+  const codeRaw = (document.getElementById('roomCodeInput').value || '').trim().toUpperCase();
+  const statusEl = document.getElementById('roomJoinStatus');
+  
+  if (codeRaw.length !== 6) {
+    statusEl.textContent = 'ルームコードは6桁で入力してください。';
+    return;
+  }
+  
+  statusEl.textContent = '接続中...';
+  statusEl.style.color = 'var(--gold)';
+  
+  const roomRef = fbDb.ref(`rooms/${codeRaw}`);
+  
+  try {
+    const snap = await roomRef.once('value');
+    if (!snap.exists()) {
+      statusEl.textContent = 'そのルームコードは存在しません。';
+      statusEl.style.color = 'var(--vermilion)';
+      return;
+    }
+    const room = snap.val();
+    if (room.status !== 'waiting') {
+      statusEl.textContent = 'そのルームはすでにプレイ中、または終了しています。';
+      statusEl.style.color = 'var(--vermilion)';
+      return;
+    }
+    if (room.guest && room.guest.joined) {
+      statusEl.textContent = 'そのルームはすでに満員です。';
+      statusEl.style.color = 'var(--vermilion)';
+      return;
+    }
+    
+    // ゲスト情報を書き込む
+    await roomRef.child('guest').set({
+      name: name,
+      joined: true,
+    });
+    
+    // ブラウザ閉じたらgame状態を変える（接続切れ通知）
+    roomRef.child('guest/joined').onDisconnect().set(false);
+    
+    currentRoom = {
+      code: codeRaw,
+      role: 'guest',
+      ref: roomRef,
+      myName: name,
+    };
+    
+    statusEl.textContent = '参加しました！ゲームを開始します...';
+    statusEl.style.color = 'var(--gold-bright)';
+    
+    // 1秒後にゲーム開始（host=プレイヤー0、guest=プレイヤー1）
+    setTimeout(() => startOnlineGame('guest', room.host.name, name), 1000);
+  } catch (e) {
+    console.error('ルーム参加失敗', e);
+    statusEl.textContent = '接続に失敗しました: ' + e.message;
+    statusEl.style.color = 'var(--vermilion)';
+  }
+}
+
+// ルーム作成のキャンセル
+async function cancelRoom() {
+  if (currentRoom && currentRoom.ref) {
+    try {
+      currentRoom.ref.onDisconnect().cancel();
+      await currentRoom.ref.remove();
+    } catch (e) {
+      console.error('ルーム削除失敗', e);
+    }
+  }
+  currentRoom = null;
+  document.getElementById('roomWaitScreen').classList.remove('active');
+  document.getElementById('startScreen').classList.add('active');
+}
+
+// オンライン対戦のゲーム開始（マッチング成立後）
+function startOnlineGame(role, hostName, guestName) {
+  gameMode = 'online';
+  // host=プレイヤー0、guest=プレイヤー1
+  myPlayerIndex = (role === 'host') ? 0 : 1;
+  playerNames = [hostName, guestName];
+  currentRound = 1;
+  cumulativeScores = [0, 0];
+  lastRoundWinner = null;
+  
+  // すべてのメニュー画面を閉じる
+  document.getElementById('startScreen').classList.remove('active');
+  document.getElementById('onlineSetupScreen').classList.remove('active');
+  document.getElementById('roomWaitScreen').classList.remove('active');
+  document.getElementById('roomJoinScreen').classList.remove('active');
+  
+  // 視点切替ボタンを隠す
+  const vpBtn = document.getElementById('viewpointBtn');
+  if (vpBtn) vpBtn.style.display = 'none';
+  
+  // 「ゲーム状態の同期」はステップ5で実装。今はローカルでゲームを開始するのみ
+  // （つまり今はマッチングだけ動いてゲーム本体はローカル）
+  alert('マッチング成立！\n（注: ゲーム状態の同期は次のステップで実装します。今はローカルゲームとして動きます。）');
+  newGame();
+}
+
 // ゲーム開始（メニューから呼ばれる）
 function startGame(mode) {
   gameMode = mode;
@@ -1469,11 +1804,31 @@ function backToMenu() {
   clearCeremonyTimers();
   skipCeremonyRequested = false;
   
+  // オンライン対戦中ならルームを離脱
+  if (currentRoom && currentRoom.ref) {
+    try {
+      currentRoom.ref.onDisconnect().cancel();
+      // ホストならルーム削除、ゲストなら自分のjoined状態をfalseに
+      if (currentRoom.role === 'host') {
+        currentRoom.ref.remove();
+      } else {
+        currentRoom.ref.child('guest').set({ name: null, joined: false });
+      }
+    } catch (e) {
+      console.error('ルーム離脱失敗', e);
+    }
+    currentRoom = null;
+  }
+  
   hideModal('placeModal');
   hideModal('roleModal');
   hideModal('endModal');
   hideCeremonyOverlay();
   document.getElementById('cpuSetupScreen').classList.remove('active');
+  document.getElementById('pvpSetupScreen').classList.remove('active');
+  document.getElementById('onlineSetupScreen').classList.remove('active');
+  document.getElementById('roomWaitScreen').classList.remove('active');
+  document.getElementById('roomJoinScreen').classList.remove('active');
   document.getElementById('startScreen').classList.add('active');
 }
 
