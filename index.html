@@ -248,13 +248,30 @@ main {
 
 .field-info {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   font-size: 0.75rem;
   font-family: 'JetBrains Mono', monospace;
   color: var(--gold);
   opacity: 0.7;
+  gap: 10px; /* field-row の gap と一致 */
+}
+.field-info-deck {
+  /* 山札列の真上：deck-stack の幅 48px に合わせる */
+  width: 48px;
+  text-align: center;
+  white-space: nowrap;
+}
+.field-info-spacer {
+  /* drawn-slot(48px) + field-divider(1px) + gap(10px) を吸収 */
+  width: 49px; /* 48+1 (gapはflex親に任せる) */
+  flex: 0 0 49px;
+}
+.field-info-field {
+  /* 場札列の左寄せ */
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
 }
 
 .card {
@@ -1124,9 +1141,11 @@ aside h2 {
     </div>
     
     <div style="display: flex; flex-direction: column; gap: 12px; max-width: 320px; margin: 0 auto;">
+      <!-- 2人対戦（同じ画面）はオンライン対戦で代替できるため非表示
       <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em;" onclick="openPvpSetup()">
         2人対戦（同じ画面）
       </button>
+      -->
       <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em; background: var(--moss); border-color: var(--moss);" onclick="openCpuSetup()">
         CPU対戦
       </button>
@@ -1449,8 +1468,9 @@ aside h2 {
     <!-- Field -->
     <section class="field-area">
       <div class="field-info">
-        <span>場札 <span id="fieldCount">0</span></span>
-        <span>山札 <span id="deckCount">0</span></span>
+        <span class="field-info-deck">山札 <span id="deckCount">0</span></span>
+        <span class="field-info-spacer"></span>
+        <span class="field-info-field">場札 <span id="fieldCount">0</span></span>
       </div>
       <div class="field-row">
         <div class="deck-stack" id="deckArea" title="山札">
@@ -1489,11 +1509,11 @@ aside h2 {
     <div class="message-log" id="messageLog">ゲームを開始します。</div>
 
     <div class="controls">
-      <button onclick="backToMenu()" class="danger">メニューに戻る</button>
+      <button onclick="backToMenu()">メニューに戻る</button>
       <button onclick="newGame()">新しいゲーム</button>
       <button onclick="toggleRoleList()">役一覧</button>
       <button onclick="toggleHelp()">遊び方</button>
-      <button onclick="switchViewpoint()" id="viewpointBtn" style="border-color: var(--vermilion); color: var(--vermilion);">視点切替（テスト用）</button>
+      <button onclick="switchViewpoint()" id="viewpointBtn" style="border-color: var(--vermilion); color: var(--vermilion); display: none;">視点切替（テスト用）</button>
     </div>
   </main>
 
@@ -2223,10 +2243,10 @@ function startGame(mode) {
   document.getElementById('pvpSetupScreen').classList.remove('active');
   document.getElementById('cpuSetupScreen').classList.remove('active');
   
-  // CPU対戦時は視点切替ボタンを隠す
+  // 視点切替ボタンは PvP モードのみ表示（現在 PvP は非表示メニューだが将来の復活時のため）
   const vpBtn = document.getElementById('viewpointBtn');
   if (vpBtn) {
-    vpBtn.style.display = (mode === 'cpu') ? 'none' : '';
+    vpBtn.style.display = (mode === 'pvp') ? '' : 'none';
   }
   
   newGame();
