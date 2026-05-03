@@ -1360,6 +1360,47 @@ aside h2 {
   </div>
 </div>
 
+<!-- オンライン対戦：再戦設定画面（ホスト専用） -->
+<div class="modal-overlay" id="rematchSetupScreen" style="background: var(--bg-deep);">
+  <div style="text-align: center; max-width: 500px; width: 90%;">
+    <div style="font-family: 'Shippori Mincho', serif; font-size: 1.4rem; color: var(--gold-bright); letter-spacing: 0.3em; margin-bottom: 8px; font-weight: 700;">
+      再戦の設定
+    </div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--gold); letter-spacing: 0.3em; opacity: 0.7; margin-bottom: 24px;">
+      REMATCH SETUP
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+      <div style="font-size: 0.8rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 12px;">ラウンド数</div>
+      <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
+        <button class="round-btn rematch-round-btn" data-rounds="1" onclick="selectRounds(1)">1</button>
+        <button class="round-btn rematch-round-btn" data-rounds="2" onclick="selectRounds(2)">2</button>
+        <button class="round-btn rematch-round-btn" data-rounds="3" onclick="selectRounds(3)">3</button>
+        <button class="round-btn rematch-round-btn" data-rounds="4" onclick="selectRounds(4)">4</button>
+        <button class="round-btn rematch-round-btn" data-rounds="5" onclick="selectRounds(5)">5</button>
+        <button class="round-btn rematch-round-btn" data-rounds="6" onclick="selectRounds(6)">6</button>
+        <button class="round-btn rematch-round-btn" data-rounds="7" onclick="selectRounds(7)">7</button>
+      </div>
+    </div>
+    
+    <div class="expert-toggle-row" onclick="toggleExpertMode('rematchExpertSwitch')" style="margin-bottom: 20px;">
+      <span>上級者モード（役を覚える）</span>
+      <div class="expert-toggle-switch" id="rematchExpertSwitch"></div>
+    </div>
+    
+    <div style="font-size: 0.75rem; color: var(--gold); opacity: 0.7; margin-bottom: 16px;">
+      設定を確定して再戦を開始します
+    </div>
+    
+    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 320px; margin: 0 auto;">
+      <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em;" onclick="startRematchGame()">
+        対戦開始
+      </button>
+      <button onclick="cancelRematchSetup()" style="font-size: 0.85rem;">キャンセル</button>
+    </div>
+  </div>
+</div>
+
 <div class="app">
   <header>
     <h1>金 屬 <span class="accent">こいこい</span></h1>
@@ -2177,6 +2218,207 @@ function startGame(mode) {
 }
 
 // メニューに戻る
+// ============================================================
+// オンライン対戦：再戦
+// ============================================================
+
+// 再戦希望中のリスナー
+let rematchListenerRef = null;
+
+// 自分が再戦を希望する（ボタン押下）
+async function requestRematch() {
+  if (!currentRoom || !currentRoom.ref) return;
+  const role = currentRoom.role; // 'host' | 'guest'
+  
+  // 自分の再戦希望フラグを立てる
+  try {
+    await currentRoom.ref.child(`rematch/${role}`).set(true);
+    console.log('[rematch] requested by', role);
+  } catch (e) {
+    console.error('[rematch] フラグ書き込み失敗', e);
+    return;
+  }
+  
+  // ボタンを「希望中...」表示に変更
+  const btn = document.getElementById('rematchBtn');
+  if (btn) {
+    btn.textContent = '再戦希望中...';
+    btn.disabled = true;
+  }
+  updateRematchStatus();
+  
+  // 既に開始監視を始めていなければ始める
+  startRematchListener();
+}
+
+// 再戦の状態を監視（両者OKならホストが新ゲームの設定画面を出す）
+function startRematchListener() {
+  if (rematchListenerRef) return; // 既に監視中
+  if (!currentRoom || !currentRoom.ref) return;
+  
+  rematchListenerRef = currentRoom.ref.child('rematch');
+  rematchListenerRef.on('value', (snap) => {
+    const r = snap.val() || {};
+    console.log('[rematch] state update', r);
+    
+    // 自分の状態は更新済み、相手の状態を反映
+    updateRematchStatus(r);
+    
+    // 両者ともOKならホスト側で再戦設定画面を起動
+    if (r.host && r.guest && !r.starting) {
+      if (currentRoom.role === 'host') {
+        // ホスト：設定画面を表示
+        openRematchSetup();
+      } else {
+        // ゲスト：「ホストが設定中...」
+        const status = document.getElementById('rematchStatus');
+        if (status) status.textContent = 'ホストが設定中...しばらくお待ちください';
+        const btn = document.getElementById('rematchBtn');
+        if (btn) {
+          btn.textContent = 'ホスト設定中';
+          btn.disabled = true;
+        }
+      }
+    }
+    
+    // ホストが「対戦開始」を押したら starting=true になる → 全員 endModal を閉じて新ゲーム開始
+    if (r.starting) {
+      hideModal('endModal');
+      hideModal('rematchSetupScreen');
+      stopRematchListener();
+      // ゲスト：rematch ノードをクリアしてホストの newGame を待つ
+      if (currentRoom.role === 'guest') {
+        // ゲストは何もしない（ホストの newGame からの state push を待つ）
+        // ただし state を受信待ちフェーズに戻す
+        state = {
+          deck: [],
+          field: [],
+          players: [newPlayer(), newPlayer()],
+          currentPlayer: 0,
+          phase: 'waiting_host',
+          drawnCard: null,
+          pendingCaptures: [],
+          gameOver: false,
+        };
+        currentRound = 1;
+        cumulativeScores = [0, 0];
+        lastRoundWinner = null;
+        log('ホストの準備を待っています...');
+        render();
+      }
+    }
+  });
+}
+
+function stopRematchListener() {
+  if (rematchListenerRef) {
+    rematchListenerRef.off('value');
+    rematchListenerRef = null;
+  }
+}
+
+// 再戦希望状態の表示更新
+function updateRematchStatus(rematchData) {
+  const status = document.getElementById('rematchStatus');
+  if (!status) return;
+  if (!rematchData) {
+    status.textContent = '';
+    return;
+  }
+  const myRole = currentRoom ? currentRoom.role : null;
+  const oppRole = myRole === 'host' ? 'guest' : 'host';
+  const meReady = !!rematchData[myRole];
+  const oppReady = !!rematchData[oppRole];
+  
+  if (meReady && oppReady) {
+    status.textContent = '両者OK！設定画面に進みます...';
+  } else if (meReady && !oppReady) {
+    status.textContent = '相手の応答を待っています...';
+  } else if (!meReady && oppReady) {
+    status.textContent = '相手が再戦を希望しています';
+  } else {
+    status.textContent = '';
+  }
+}
+
+// 再戦設定画面（ホスト専用）
+function openRematchSetup() {
+  // 既に開いていたら何もしない
+  if (document.getElementById('rematchSetupScreen').classList.contains('active')) return;
+  // endModal を一旦隠す
+  document.getElementById('rematchSetupScreen').classList.add('active');
+  // ラウンド数選択ボタンの選択状態を更新
+  document.querySelectorAll('#rematchSetupScreen .round-btn').forEach(btn => {
+    btn.classList.toggle('selected', parseInt(btn.dataset.rounds) === totalRounds);
+  });
+  // 上級者モードスイッチ表示
+  const sw = document.getElementById('rematchExpertSwitch');
+  if (sw) sw.classList.toggle('on', expertMode);
+}
+
+// 再戦設定で「対戦開始」ボタン
+async function startRematchGame() {
+  if (!currentRoom || !currentRoom.ref) return;
+  
+  // Firebase に新しい設定を反映
+  try {
+    await currentRoom.ref.update({
+      totalRounds: totalRounds,
+      expertMode: expertMode,
+    });
+    // starting フラグを立てる（両者で endModal を閉じるシグナル）
+    await currentRoom.ref.child('rematch').set({
+      host: false,
+      guest: false,
+      starting: true,
+    });
+    console.log('[rematch] starting new game');
+  } catch (e) {
+    console.error('[rematch] 開始フラグ書き込み失敗', e);
+    return;
+  }
+  
+  // 自分の画面の処理：endModal を閉じる、設定画面を閉じる、ラウンドリセット、newGame
+  hideModal('endModal');
+  document.getElementById('rematchSetupScreen').classList.remove('active');
+  stopRematchListener();
+  
+  currentRound = 1;
+  cumulativeScores = [0, 0];
+  lastRoundWinner = null;
+  
+  // rematch ノードを完全削除（次回再戦時に備える）
+  setTimeout(async () => {
+    try {
+      await currentRoom.ref.child('rematch').remove();
+    } catch (e) { /* noop */ }
+  }, 1000);
+  
+  newGame();
+}
+
+function cancelRematchSetup() {
+  // ホストが設定画面でキャンセル → rematch をリセット
+  document.getElementById('rematchSetupScreen').classList.remove('active');
+  if (currentRoom && currentRoom.ref) {
+    currentRoom.ref.child('rematch').remove().catch(() => {});
+  }
+  // endModal を再表示（再戦希望ボタンをリセットしたい）
+  resetRematchButtons();
+  showModal('endModal');
+}
+
+// endModal 内の再戦ボタンを初期状態に戻す
+function resetRematchButtons() {
+  const btn = document.getElementById('rematchBtn');
+  if (btn) {
+    btn.textContent = '再戦したい';
+    btn.disabled = false;
+  }
+  const status = document.getElementById('rematchStatus');
+  if (status) status.textContent = '';
+}
+
 function backToMenu() {
   // 進行中のCPU処理タイマーをキャンセル
   if (cpuActionTimer) {
@@ -2187,6 +2429,9 @@ function backToMenu() {
   clearCeremonyTimers();
   skipCeremonyRequested = false;
   isPlayingOnlineCeremony = false;
+  
+  // 再戦監視も止める
+  stopRematchListener();
   
   // オンライン対戦中ならルームを離脱
   if (currentRoom && currentRoom.ref) {
@@ -2213,6 +2458,7 @@ function backToMenu() {
   document.getElementById('onlineSetupScreen').classList.remove('active');
   document.getElementById('roomWaitScreen').classList.remove('active');
   document.getElementById('roomJoinScreen').classList.remove('active');
+  document.getElementById('rematchSetupScreen').classList.remove('active');
   document.getElementById('startScreen').classList.add('active');
 }
 
@@ -3519,22 +3765,51 @@ function showRoundEndScreen(title, subtitle, isFinalRound) {
     }
   });
   
-  // ボタン：次ラウンド or 終了
+  // ボタン：次ラウンド or 終了 or 再戦
   const modal = document.getElementById('endModal');
-  // 既存のbutton(もう一度)を消して、状況に応じたボタンを作る
-  const existingBtn = modal.querySelector('button');
-  if (existingBtn) existingBtn.remove();
+  // 既存のbutton全部を消して、状況に応じたボタンを作る
+  modal.querySelectorAll('button').forEach(b => b.remove());
   
-  const btn = document.createElement('button');
-  btn.className = 'primary';
   if (isFinalRound) {
-    // 最終ラウンド：両プレイヤーとも自由にメニューに戻れる
-    btn.textContent = 'メニューに戻る';
-    btn.onclick = () => {
-      hideModal('endModal');
-      backToMenu();
-    };
+    if (gameMode === 'online') {
+      // オンライン対戦：再戦ボタンとメニュー戻るボタンの2つ
+      const rematchBtn = document.createElement('button');
+      rematchBtn.className = 'primary';
+      rematchBtn.id = 'rematchBtn';
+      rematchBtn.textContent = '再戦したい';
+      rematchBtn.style.marginBottom = '8px';
+      rematchBtn.onclick = requestRematch;
+      modal.querySelector('.modal').appendChild(rematchBtn);
+      
+      // 再戦状態の表示エリア
+      const rematchStatus = document.createElement('div');
+      rematchStatus.id = 'rematchStatus';
+      rematchStatus.style.cssText = 'font-size: 0.85rem; color: var(--gold-bright); margin: 8px 0; min-height: 20px; letter-spacing: 0.1em;';
+      rematchStatus.textContent = '';
+      modal.querySelector('.modal').appendChild(rematchStatus);
+      
+      const menuBtn = document.createElement('button');
+      menuBtn.textContent = 'メニューに戻る';
+      menuBtn.style.fontSize = '0.85rem';
+      menuBtn.onclick = () => {
+        hideModal('endModal');
+        backToMenu();
+      };
+      modal.querySelector('.modal').appendChild(menuBtn);
+    } else {
+      // オフライン対戦：単純にメニューに戻る
+      const btn = document.createElement('button');
+      btn.className = 'primary';
+      btn.textContent = 'メニューに戻る';
+      btn.onclick = () => {
+        hideModal('endModal');
+        backToMenu();
+      };
+      modal.querySelector('.modal').appendChild(btn);
+    }
   } else {
+    const btn = document.createElement('button');
+    btn.className = 'primary';
     // オンライン対戦時、ホスト（player0）だけがボタンを押せる
     if (gameMode === 'online' && myPlayerIndex !== 0) {
       btn.textContent = 'ホストの操作を待っています...';
@@ -3548,10 +3823,15 @@ function showRoundEndScreen(title, subtitle, isFinalRound) {
         newGame();
       };
     }
+    modal.querySelector('.modal').appendChild(btn);
   }
-  modal.querySelector('.modal').appendChild(btn);
   
   showModal('endModal');
+  
+  // オンライン対戦の最終ラウンド：再戦リスナーを開始（相手の動きを検知するため）
+  if (isFinalRound && gameMode === 'online') {
+    startRematchListener();
+  }
 }
 
 // 上がり時に呼ばれる（旧 showEndScreen の置き換え）
@@ -4172,8 +4452,7 @@ function renderRoleList() {
 // UI ヘルパー
 // ============================================================
 function log(msg) {
-  document.getElementById('messageLog').innerHTML = 
-    `<span class="turn-label">${state.currentPlayer === 0 ? '[一]' : '[二]'}</span> ${msg}`;
+  document.getElementById('messageLog').innerHTML = msg;
 }
 
 function showModal(id) {
