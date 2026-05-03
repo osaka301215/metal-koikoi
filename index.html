@@ -1745,6 +1745,86 @@ async function cancelRoom() {
   document.getElementById('startScreen').classList.add('active');
 }
 
+// オンライン対戦：ゲーム状態の同期管理
+// state全体をFirebaseに保存し、相手の更新を購読する
+let stateListenerRef = null; // Firebase購読の参照
+let isApplyingRemoteState = false; // 相手から来たstate反映中フラグ（無限ループ防止）
+
+// state を Firebase 用に直列化可能な形に変換
+// （関数や undefined が含まれていると Firebase が拒否するので、
+//  純粋なデータだけにする）
+function serializeState(s) {
+  // JSON 経由でディープコピーすれば純粋データになる
+  // ただし undefined は JSON で消えるので気をつける
+  return JSON.parse(JSON.stringify(s));
+}
+
+// state を Firebase に書き込む
+function pushStateToFirebase() {
+  if (gameMode !== 'online') return;
+  if (!currentRoom || !currentRoom.ref) return;
+  if (isApplyingRemoteState) return; // 反映中は書き戻さない
+  
+  try {
+    const data = {
+      state: serializeState(state),
+      currentRound: currentRound,
+      cumulativeScores: cumulativeScores,
+      lastRoundWinner: lastRoundWinner,
+      lastUpdatedBy: myPlayerIndex,
+      lastUpdatedAt: firebase.database.ServerValue.TIMESTAMP,
+    };
+    currentRoom.ref.child('game').set(data);
+  } catch (e) {
+    console.error('Firebase書き込み失敗', e);
+  }
+}
+
+// Firebase の game ノードを購読し、変化を自分の画面に反映
+function subscribeToGameUpdates() {
+  if (!currentRoom || !currentRoom.ref) return;
+  
+  // 既存の購読があれば解除
+  unsubscribeFromGameUpdates();
+  
+  stateListenerRef = currentRoom.ref.child('game');
+  stateListenerRef.on('value', (snap) => {
+    const data = snap.val();
+    if (!data) return;
+    
+    // 自分が最後に書いた更新ならスキップ（=自分の操作）
+    if (data.lastUpdatedBy === myPlayerIndex) return;
+    
+    // 相手の操作を反映
+    applyRemoteState(data);
+  });
+}
+
+function unsubscribeFromGameUpdates() {
+  if (stateListenerRef) {
+    stateListenerRef.off('value');
+    stateListenerRef = null;
+  }
+}
+
+// Firebase から受け取った state を自分の画面に反映
+function applyRemoteState(data) {
+  isApplyingRemoteState = true;
+  try {
+    state = data.state;
+    currentRound = data.currentRound;
+    cumulativeScores = data.cumulativeScores || [0, 0];
+    lastRoundWinner = data.lastRoundWinner;
+    
+    render();
+    
+    // モーダル類は state.phase などに応じて開く必要あり
+    // ※ ステップ5-4で詳細実装。今は基本的な反映だけ。
+  } finally {
+    isApplyingRemoteState = false;
+  }
+}
+
 // オンライン対戦のゲーム開始（マッチング成立後）
 function startOnlineGame(role, hostName, guestName) {
   gameMode = 'online';
@@ -1765,10 +1845,32 @@ function startOnlineGame(role, hostName, guestName) {
   const vpBtn = document.getElementById('viewpointBtn');
   if (vpBtn) vpBtn.style.display = 'none';
   
-  // 「ゲーム状態の同期」はステップ5で実装。今はローカルでゲームを開始するのみ
-  // （つまり今はマッチングだけ動いてゲーム本体はローカル）
-  alert('マッチング成立！\n（注: ゲーム状態の同期は次のステップで実装します。今はローカルゲームとして動きます。）');
-  newGame();
+  // ホスト側がゲームを初期化してFirebaseに書く
+  // ゲスト側はFirebaseの初期stateを待つ
+  if (role === 'host') {
+    // ホストは通常通り newGame()
+    newGame();
+    // newGame の最後で pushStateToFirebase が呼ばれる（後で newGame に追加）
+  } else {
+    // ゲストは Firebase からの state を待つ
+    log('ホストの準備を待っています...');
+    // 空の state を表示（render用）
+    state = {
+      deck: [],
+      field: [],
+      players: [newPlayer(), newPlayer()],
+      currentPlayer: 0,
+      selectedHandCard: null,
+      phase: 'waiting_host',
+      drawnCard: null,
+      pendingCaptures: [],
+      gameOver: false,
+    };
+    render();
+  }
+  
+  // どちらの役割でも購読を開始
+  subscribeToGameUpdates();
 }
 
 // ゲーム開始（メニューから呼ばれる）
@@ -1890,6 +1992,12 @@ function newGame() {
 }
 
 function runStartCeremony() {
+  // オンライン対戦：演出を簡略化（即時8枚展開、先攻はランダムまたは前回負け）
+  if (gameMode === 'online') {
+    runOnlineStartCeremony();
+    return;
+  }
+  
   // 先攻決定が必要かを判定
   // - 1ラウンド目（lastRoundWinner === null）：先攻決定演出
   // - 前ラウンドが引き分け：先攻決定演出
@@ -1901,6 +2009,24 @@ function runStartCeremony() {
     state.currentPlayer = 1 - lastRoundWinner;
     runFieldRevealCeremony(startActualGame);
   }
+}
+
+// オンライン対戦の開始処理（ホストのみ実行）
+// 先攻決定（簡易：ランダムまたは前回負けが先攻）と場札即時展開
+function runOnlineStartCeremony() {
+  // 先攻決定
+  if (lastRoundWinner === 'draw' || lastRoundWinner === null) {
+    state.currentPlayer = Math.floor(Math.random() * 2);
+  } else {
+    state.currentPlayer = 1 - lastRoundWinner;
+  }
+  
+  // 場札を即時8枚展開
+  while (state.field.length < FIELD_REFILL_TARGET && state.deck.length > 0) {
+    state.field.push(state.deck.pop());
+  }
+  
+  startActualGame();
 }
 
 // 先攻決定演出：山札の上から2枚を引いて、原子番号大きい方が先攻
@@ -2012,6 +2138,9 @@ function startActualGame() {
   log(`${playerNames[state.currentPlayer]}の番です。`);
   render();
   scheduleCpuTurnIfNeeded();
+  
+  // オンライン対戦：state を Firebase に書き込む
+  pushStateToFirebase();
 }
 
 function skipCeremony() {
