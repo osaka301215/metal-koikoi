@@ -1832,7 +1832,23 @@ function applyRemoteState(data) {
   isApplyingRemoteState = true;
   try {
     state = data.state;
-    currentRound = data.currentRound;
+    
+    // Firebase は空配列・空オブジェクトを消すので補完する
+    if (!state.deck) state.deck = [];
+    if (!state.field) state.field = [];
+    if (!state.pendingCaptures) state.pendingCaptures = [];
+    if (!state.players) state.players = [newPlayer(), newPlayer()];
+    state.players.forEach(p => {
+      if (!p.hand) p.hand = [];
+      if (!p.pending) p.pending = [];
+      if (!p.slots) p.slots = {};
+      if (!p.completedRoles) p.completedRoles = [];
+      if (typeof p.score !== 'number') p.score = 0;
+      if (typeof p.koikoiCount !== 'number') p.koikoiCount = 0;
+      if (typeof p.koikoi !== 'boolean') p.koikoi = false;
+    });
+    
+    currentRound = data.currentRound || 1;
     cumulativeScores = data.cumulativeScores || [0, 0];
     lastRoundWinner = (data.lastRoundWinner === 'null') ? null : data.lastRoundWinner;
     
@@ -2198,13 +2214,13 @@ function ensureSlot(player, roleId) {
 
 // 役のスロットがすでに存在するか
 function hasSlot(player, roleId) {
-  return !!player.slots[roleId];
+  return !!(player.slots && player.slots[roleId]);
 }
 
 // 役の現在の充足状況（埋まったマス数 / 全マス数）
 function slotProgress(player, roleId) {
   const role = ROLE_BY_ID[roleId];
-  if (!player.slots[roleId]) return { filled: 0, total: role.elements.length };
+  if (!player.slots || !player.slots[roleId]) return { filled: 0, total: role.elements.length };
   let filled = 0;
   for (const e of role.elements) {
     if (player.slots[roleId][e]) filled++;
