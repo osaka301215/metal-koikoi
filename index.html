@@ -1833,26 +1833,40 @@ function applyRemoteState(data) {
   try {
     state = data.state;
     
-    // Firebase は空配列・空オブジェクトを消すので補完する
-    if (!state.deck) state.deck = [];
-    if (!state.field) state.field = [];
-    if (!state.pendingCaptures) state.pendingCaptures = [];
+    // Firebase は配列をオブジェクトとして保存することがあるので、配列に戻す
+    function toArray(v) {
+      if (Array.isArray(v)) return v;
+      if (v && typeof v === 'object') return Object.values(v);
+      return [];
+    }
+    
+    state.deck = toArray(state.deck);
+    state.field = toArray(state.field);
+    state.pendingCaptures = toArray(state.pendingCaptures);
+    
     if (!state.players) state.players = [newPlayer(), newPlayer()];
+    state.players = toArray(state.players);
+    while (state.players.length < 2) state.players.push(newPlayer());
+    
     state.players.forEach(p => {
-      if (!p.hand) p.hand = [];
-      if (!p.pending) p.pending = [];
+      p.hand = toArray(p.hand);
+      p.pending = toArray(p.pending);
+      p.completedRoles = toArray(p.completedRoles);
       if (!p.slots) p.slots = {};
-      if (!p.completedRoles) p.completedRoles = [];
       if (typeof p.score !== 'number') p.score = 0;
       if (typeof p.koikoiCount !== 'number') p.koikoiCount = 0;
       if (typeof p.koikoi !== 'boolean') p.koikoi = false;
     });
     
     currentRound = data.currentRound || 1;
-    cumulativeScores = data.cumulativeScores || [0, 0];
+    cumulativeScores = toArray(data.cumulativeScores);
+    while (cumulativeScores.length < 2) cumulativeScores.push(0);
     lastRoundWinner = (data.lastRoundWinner === 'null') ? null : data.lastRoundWinner;
     
+    console.log('[apply] state restored: deck=', state.deck.length, 'field=', state.field.length, 'p0.hand=', state.players[0].hand.length, 'p1.hand=', state.players[1].hand.length);
+    
     render();
+    console.log('[apply] render completed');
   } catch (e) {
     console.error('[apply] 反映エラー', e);
   } finally {
