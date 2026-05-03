@@ -547,6 +547,22 @@ aside h2 {
 .slot-mini-card.expert-hidden {
   color: transparent;
 }
+
+/* 先攻決定演出：勝者カード点滅 */
+@keyframes ceremonyWinnerPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(196, 56, 52, 0);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 24px 6px rgba(218, 165, 32, 0.85);
+    transform: scale(1.08);
+  }
+}
+.ceremony-winner {
+  animation: ceremonyWinnerPulse 0.9s ease-in-out infinite;
+  border-radius: 6px;
+}
 /* 上級者モード：埋まっているスロットは赤背景＋白字で元素記号を表示 */
 .slot-mini-card.expert-filled {
   background: rgba(196, 56, 52, 0.85);
@@ -2670,32 +2686,32 @@ function playOnlineCeremony(ceremonyData, onDone) {
   showCeremonyOverlay();
   log('先攻決定中...');
   
-  // 0.8秒: Aをめくる
+  // 1.2秒: Aをめくる
   ceremonyTimers.push(setTimeout(() => {
     if (skipCeremonyRequested) return finishOnlineFirstPlayerCeremony(ceremonyData, proceedToFieldReveal);
     state.ceremonyDraw.aRevealed = true;
     renderCeremonyOverlay();
-  }, 800));
+  }, 1200));
   
-  // 1.7秒: Bをめくる
+  // 2.6秒: Bをめくる
   ceremonyTimers.push(setTimeout(() => {
     if (skipCeremonyRequested) return finishOnlineFirstPlayerCeremony(ceremonyData, proceedToFieldReveal);
     state.ceremonyDraw.bRevealed = true;
     renderCeremonyOverlay();
-  }, 1700));
+  }, 2600));
   
-  // 2.5秒: 判定発表
+  // 4.0秒: 判定発表
   ceremonyTimers.push(setTimeout(() => {
     if (skipCeremonyRequested) return finishOnlineFirstPlayerCeremony(ceremonyData, proceedToFieldReveal);
     state.ceremonyDraw.decided = true;
     renderCeremonyOverlay();
-  }, 2500));
+  }, 4000));
   
-  // 4.0秒: 終了 → 場札展開へ
+  // 6.0秒: 終了 → 場札展開へ
   ceremonyTimers.push(setTimeout(() => {
     if (skipCeremonyRequested) return;
     finishOnlineFirstPlayerCeremony(ceremonyData, proceedToFieldReveal);
-  }, 4000));
+  }, 6000));
 }
 
 function finishOnlineFirstPlayerCeremony(ceremonyData, onDone) {
@@ -2733,29 +2749,29 @@ function runFirstPlayerCeremony(onDone) {
   showCeremonyOverlay();
   log('先攻決定中...');
   
-  // 0.8秒後にAをめくる、その後1秒後にBをめくる、その1秒後に判定発表、2秒後に終了
+  // 1.2秒後にAをめくる、2.6秒でBをめくる、4.0秒で判定発表、6.0秒で終了
   ceremonyTimers.push(setTimeout(() => {
     if (skipCeremonyRequested) return finishFirstPlayerCeremony(cardA, cardB, onDone);
     state.ceremonyDraw.aRevealed = true;
     renderCeremonyOverlay();
-  }, 800));
+  }, 1200));
   
   ceremonyTimers.push(setTimeout(() => {
     if (skipCeremonyRequested) return finishFirstPlayerCeremony(cardA, cardB, onDone);
     state.ceremonyDraw.bRevealed = true;
     renderCeremonyOverlay();
-  }, 1700));
+  }, 2600));
   
   ceremonyTimers.push(setTimeout(() => {
     if (skipCeremonyRequested) return finishFirstPlayerCeremony(cardA, cardB, onDone);
     state.ceremonyDraw.decided = true;
     renderCeremonyOverlay();
-  }, 2500));
+  }, 4000));
   
   ceremonyTimers.push(setTimeout(() => {
     if (skipCeremonyRequested) return; // すでに finished
     finishFirstPlayerCeremony(cardA, cardB, onDone);
-  }, 4000));
+  }, 6000));
 }
 
 function finishFirstPlayerCeremony(cardA, cardB, onDone) {
@@ -4118,6 +4134,9 @@ function renderCeremonyOverlay() {
   const slotB = document.getElementById('ceremonyCardB');
   slotA.innerHTML = '';
   slotB.innerHTML = '';
+  // 点滅クラスをいったんリセット
+  slotA.classList.remove('ceremony-winner');
+  slotB.classList.remove('ceremony-winner');
   
   if (state.ceremonyDraw.aRevealed) {
     slotA.appendChild(renderCard(state.ceremonyDraw.cardA, {}));
@@ -4139,8 +4158,10 @@ function renderCeremonyOverlay() {
     let txt;
     if (a.atomicNumber > b.atomicNumber) {
       txt = `${a.symbol}(原子番号${a.atomicNumber}) > ${b.symbol}(原子番号${b.atomicNumber}) → ${playerNames[0]} の先攻`;
+      slotA.classList.add('ceremony-winner');
     } else if (b.atomicNumber > a.atomicNumber) {
       txt = `${b.symbol}(原子番号${b.atomicNumber}) > ${a.symbol}(原子番号${a.atomicNumber}) → ${playerNames[1]} の先攻`;
+      slotB.classList.add('ceremony-winner');
     } else {
       txt = '同点 → ランダム決定';
     }
