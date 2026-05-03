@@ -1761,22 +1761,34 @@ function serializeState(s) {
 
 // state を Firebase に書き込む
 function pushStateToFirebase() {
-  if (gameMode !== 'online') return;
-  if (!currentRoom || !currentRoom.ref) return;
-  if (isApplyingRemoteState) return; // 反映中は書き戻さない
+  if (gameMode !== 'online') {
+    console.log('[push] skip: not online (mode=', gameMode, ')');
+    return;
+  }
+  if (!currentRoom || !currentRoom.ref) {
+    console.log('[push] skip: no currentRoom');
+    return;
+  }
+  if (isApplyingRemoteState) {
+    console.log('[push] skip: applying remote state');
+    return;
+  }
   
   try {
     const data = {
       state: serializeState(state),
       currentRound: currentRound,
       cumulativeScores: cumulativeScores,
-      lastRoundWinner: lastRoundWinner,
+      lastRoundWinner: lastRoundWinner === null ? 'null' : lastRoundWinner, // null は Firebase で消えるので文字列化
       lastUpdatedBy: myPlayerIndex,
       lastUpdatedAt: firebase.database.ServerValue.TIMESTAMP,
     };
-    currentRoom.ref.child('game').set(data);
+    console.log('[push] writing state, deck=', state.deck.length, 'field=', state.field.length, 'phase=', state.phase);
+    currentRoom.ref.child('game').set(data)
+      .then(() => console.log('[push] success'))
+      .catch(e => console.error('[push] Firebase書き込み失敗', e));
   } catch (e) {
-    console.error('Firebase書き込み失敗', e);
+    console.error('[push] 同期エラー', e);
   }
 }
 
@@ -1787,16 +1799,23 @@ function subscribeToGameUpdates() {
   // 既存の購読があれば解除
   unsubscribeFromGameUpdates();
   
+  console.log('[sub] subscribing to game updates');
   stateListenerRef = currentRoom.ref.child('game');
   stateListenerRef.on('value', (snap) => {
     const data = snap.val();
+    console.log('[sub] received update', data ? `(by player${data.lastUpdatedBy}, deck=${data.state ? data.state.deck.length : '?'})` : '(null)');
     if (!data) return;
     
     // 自分が最後に書いた更新ならスキップ（=自分の操作）
-    if (data.lastUpdatedBy === myPlayerIndex) return;
+    if (data.lastUpdatedBy === myPlayerIndex) {
+      console.log('[sub] skip: own update');
+      return;
+    }
     
     // 相手の操作を反映
     applyRemoteState(data);
+  }, (error) => {
+    console.error('[sub] 購読エラー', error);
   });
 }
 
@@ -1809,17 +1828,17 @@ function unsubscribeFromGameUpdates() {
 
 // Firebase から受け取った state を自分の画面に反映
 function applyRemoteState(data) {
+  console.log('[apply] applying remote state, phase=', data.state ? data.state.phase : '?');
   isApplyingRemoteState = true;
   try {
     state = data.state;
     currentRound = data.currentRound;
     cumulativeScores = data.cumulativeScores || [0, 0];
-    lastRoundWinner = data.lastRoundWinner;
+    lastRoundWinner = (data.lastRoundWinner === 'null') ? null : data.lastRoundWinner;
     
     render();
-    
-    // モーダル類は state.phase などに応じて開く必要あり
-    // ※ ステップ5-4で詳細実装。今は基本的な反映だけ。
+  } catch (e) {
+    console.error('[apply] 反映エラー', e);
   } finally {
     isApplyingRemoteState = false;
   }
@@ -1827,6 +1846,7 @@ function applyRemoteState(data) {
 
 // オンライン対戦のゲーム開始（マッチング成立後）
 function startOnlineGame(role, hostName, guestName) {
+  console.log('[startOnlineGame] role=', role, 'hostName=', hostName, 'guestName=', guestName);
   gameMode = 'online';
   // host=プレイヤー0、guest=プレイヤー1
   myPlayerIndex = (role === 'host') ? 0 : 1;
@@ -1845,16 +1865,17 @@ function startOnlineGame(role, hostName, guestName) {
   const vpBtn = document.getElementById('viewpointBtn');
   if (vpBtn) vpBtn.style.display = 'none';
   
+  // どちらの役割でも先に購読を開始
+  subscribeToGameUpdates();
+  
   // ホスト側がゲームを初期化してFirebaseに書く
-  // ゲスト側はFirebaseの初期stateを待つ
   if (role === 'host') {
-    // ホストは通常通り newGame()
+    console.log('[startOnlineGame] host: calling newGame()');
     newGame();
-    // newGame の最後で pushStateToFirebase が呼ばれる（後で newGame に追加）
   } else {
+    console.log('[startOnlineGame] guest: waiting for host state');
     // ゲストは Firebase からの state を待つ
     log('ホストの準備を待っています...');
-    // 空の state を表示（render用）
     state = {
       deck: [],
       field: [],
@@ -1868,9 +1889,6 @@ function startOnlineGame(role, hostName, guestName) {
     };
     render();
   }
-  
-  // どちらの役割でも購読を開始
-  subscribeToGameUpdates();
 }
 
 // ゲーム開始（メニューから呼ばれる）
@@ -2014,6 +2032,7 @@ function runStartCeremony() {
 // オンライン対戦の開始処理（ホストのみ実行）
 // 先攻決定（簡易：ランダムまたは前回負けが先攻）と場札即時展開
 function runOnlineStartCeremony() {
+  console.log('[runOnlineStartCeremony] start, deck=', state.deck.length, 'field=', state.field.length);
   // 先攻決定
   if (lastRoundWinner === 'draw' || lastRoundWinner === null) {
     state.currentPlayer = Math.floor(Math.random() * 2);
@@ -2025,6 +2044,7 @@ function runOnlineStartCeremony() {
   while (state.field.length < FIELD_REFILL_TARGET && state.deck.length > 0) {
     state.field.push(state.deck.pop());
   }
+  console.log('[runOnlineStartCeremony] after, deck=', state.deck.length, 'field=', state.field.length, 'currentPlayer=', state.currentPlayer);
   
   startActualGame();
 }
@@ -2134,6 +2154,7 @@ function runFieldRevealCeremony(onDone) {
 }
 
 function startActualGame() {
+  console.log('[startActualGame] gameMode=', gameMode);
   state.phase = 'play_hand';
   log(`${playerNames[state.currentPlayer]}の番です。`);
   render();
