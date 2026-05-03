@@ -1830,6 +1830,11 @@ function unsubscribeFromGameUpdates() {
 function applyRemoteState(data) {
   console.log('[apply] applying remote state, phase=', data.state ? data.state.phase : '?');
   isApplyingRemoteState = true;
+  
+  // 適用前の手番を覚えておく（変化検知用）
+  const prevCurrentPlayer = state.currentPlayer;
+  const prevGameOver = state.gameOver;
+  
   try {
     state = data.state;
     
@@ -1865,12 +1870,16 @@ function applyRemoteState(data) {
     
     console.log('[apply] state restored: deck=', state.deck.length, 'field=', state.field.length, 'p0.hand=', state.players[0].hand.length, 'p1.hand=', state.players[1].hand.length);
     
+    // 手番が切り替わったらログも更新
+    if (state.currentPlayer !== prevCurrentPlayer && !state.gameOver) {
+      log(`${playerNames[state.currentPlayer]}の番です。`);
+    }
+    
     render();
     console.log('[apply] render completed');
     
     // ラウンド終了が同期されてきた場合、自分の画面でも結果画面を表示する
     if (state.gameOver && !document.getElementById('endModal').classList.contains('active')) {
-      // 相手のラウンド終了タイトルを推測
       const isFinalRound = currentRound >= totalRounds;
       let title;
       if (state.players[0].score > state.players[1].score) {
@@ -1881,8 +1890,6 @@ function applyRemoteState(data) {
         title = '引き分け';
       }
       const subtitle = `今ラウンド: ${state.players[0].score} - ${state.players[1].score}`;
-      // 自分側の cumulativeScores はすでに同期で受け取っているので、再加算しないように
-      // （注：相手側で finishCurrentRound が cumulativeScores を加算済みのため、こちらでは加算しない）
       showRoundEndScreen(title, subtitle, isFinalRound);
     }
     
