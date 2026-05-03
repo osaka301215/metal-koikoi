@@ -2583,6 +2583,8 @@ function runStartCeremony() {
   } else {
     // 前ラウンド勝者が分かっている → 負け側が先攻
     state.currentPlayer = 1 - lastRoundWinner;
+    state.firstPlayerOfRound = 1 - lastRoundWinner;
+    state.firstPlayerHasPlayed = false;
     runFieldRevealCeremony(startActualGame);
   }
 }
@@ -2635,6 +2637,8 @@ function runOnlineStartCeremony() {
     fieldCards: fieldCards, // 1枚ずつ場に出していくカード列
   };
   state.currentPlayer = firstPlayer;
+  state.firstPlayerOfRound = firstPlayer;
+  state.firstPlayerHasPlayed = false;
   state.phase = 'ceremony_animating';
   
   console.log('[runOnlineStartCeremony] ceremony planned, firstPlayer=', firstPlayer, 'fieldCards=', fieldCards.length);
@@ -2746,6 +2750,8 @@ function playOnlineCeremony(ceremonyData, onDone) {
 function finishOnlineFirstPlayerCeremony(ceremonyData, onDone) {
   clearCeremonyTimers();
   state.currentPlayer = ceremonyData.firstPlayer;
+  state.firstPlayerOfRound = ceremonyData.firstPlayer;
+  state.firstPlayerHasPlayed = false;
   state.ceremonyDraw = null;
   hideCeremonyOverlay();
   log(`${playerNames[ceremonyData.firstPlayer]}の先攻！`);
@@ -2816,6 +2822,8 @@ function finishFirstPlayerCeremony(cardA, cardB, onDone) {
     firstPlayer = Math.floor(Math.random() * 2);
   }
   state.currentPlayer = firstPlayer;
+  state.firstPlayerOfRound = firstPlayer;
+  state.firstPlayerHasPlayed = false;
   
   // 引いた2枚を山札に戻す（シャッフル）
   state.deck.push(cardA, cardB);
@@ -3374,17 +3382,29 @@ function countCardsBeingPlaced() {
 
 const PLACE_LIMIT_PER_TURN = 2;
 
+// 「先攻の最初のターン」だけは配置上限を1枚に絞る（先攻有利の緩和）
+// state.firstPlayerOfRound, state.firstPlayerHasPlayed で判定
+function getCurrentPlaceLimit() {
+  if (!state) return PLACE_LIMIT_PER_TURN;
+  // 現在の手番が「先攻 かつ 先攻はまだ1度もターンを完了してない」場合のみ 1
+  if (state.currentPlayer === state.firstPlayerOfRound && !state.firstPlayerHasPlayed) {
+    return 1;
+  }
+  return PLACE_LIMIT_PER_TURN;
+}
+
 function updatePlaceModalConfirmBtn() {
   const btn = document.getElementById('placeModalConfirmBtn');
   const captures = placeModalState.captures;
   const allSelected = captures.every(c => placeModalState.selections[c.id]);
   const placeCount = countCardsBeingPlaced();
-  const overLimit = placeCount > PLACE_LIMIT_PER_TURN;
+  const currentLimit = getCurrentPlaceLimit();
+  const overLimit = placeCount > currentLimit;
   
   btn.disabled = !allSelected || overLimit;
   
   if (overLimit) {
-    btn.textContent = `役に置けるのは2枚まで`;
+    btn.textContent = `役に置けるのは${currentLimit}枚まで`;
   } else {
     btn.textContent = `決定`;
   }
@@ -3397,11 +3417,12 @@ function updatePlaceModalConfirmBtn() {
     if (overLimit) {
       statusBar.style.color = 'var(--vermilion)';
       statusBar.style.borderColor = 'var(--vermilion)';
-      statusBar.textContent = `⚠ 役に置けるのは1ターンに2枚まで（現在 ${placeCount} 枚を役に配置中）`;
+      statusBar.textContent = `⚠ 役に置けるのは1ターンに${currentLimit}枚まで（現在 ${placeCount} 枚を役に配置中）`;
     } else {
       statusBar.style.color = 'var(--gold-bright)';
       statusBar.style.borderColor = 'var(--gold)';
-      statusBar.textContent = `役に配置: ${placeCount} / ${PLACE_LIMIT_PER_TURN} 枚（残り${PLACE_LIMIT_PER_TURN - placeCount}枚配置可能）`;
+      const firstTurnNote = (currentLimit === 1) ? ' ・先攻初手は1枚まで' : '';
+      statusBar.textContent = `役に配置: ${placeCount} / ${currentLimit} 枚（残り${currentLimit - placeCount}枚配置可能）${firstTurnNote}`;
     }
   }
 }
@@ -3693,6 +3714,12 @@ function endTurn() {
   if (state.deck.length === 0 && state.players[0].hand.length === 0 && state.players[1].hand.length === 0) {
     endRound('deck_empty');
     return;
+  }
+  
+  // 先攻が最初のターンを終えた時点でフラグを立てる
+  // （以降、配置上限は通常の2枚に戻る）
+  if (state.currentPlayer === state.firstPlayerOfRound && !state.firstPlayerHasPlayed) {
+    state.firstPlayerHasPlayed = true;
   }
   
   state.currentPlayer = 1 - state.currentPlayer;
@@ -4070,12 +4097,13 @@ function cpuPickBestPlacements(player, captures, existingPendings) {
   
   options.sort((a, b) => b.score - a.score);
   
+  const placeLimit = getCurrentPlaceLimit();
   const placements = [];
   const usedCardIds = new Set();
   const usedSlotKeys = new Set(); // "roleId:symbol" 重複防止
   
   for (const opt of options) {
-    if (placements.length >= PLACE_LIMIT_PER_TURN) break;
+    if (placements.length >= placeLimit) break;
     if (usedCardIds.has(opt.card.id)) continue;
     const slotKey = `${opt.roleId}:${opt.card.symbol}`;
     if (usedSlotKeys.has(slotKey)) continue;
@@ -4465,12 +4493,13 @@ function cpuStrongPickPlacements(player, captures, existingPendings) {
   
   options.sort((a, b) => b.score - a.score);
   
+  const placeLimit = getCurrentPlaceLimit();
   const placements = [];
   const usedCardIds = new Set();
   const usedSlotKeys = new Set();
   
   for (const opt of options) {
-    if (placements.length >= PLACE_LIMIT_PER_TURN) break;
+    if (placements.length >= placeLimit) break;
     if (usedCardIds.has(opt.card.id)) continue;
     const slotKey = `${opt.roleId}:${opt.card.symbol}`;
     if (usedSlotKeys.has(slotKey)) continue;
@@ -4677,9 +4706,10 @@ function cpuFinishCaptures() {
     const shuffled = [...allCards].sort(() => Math.random() - 0.5);
     placements = [];
     const placedSet = new Set();
+    const placeLimit = getCurrentPlaceLimit();
     
     for (const card of shuffled) {
-      if (placements.length >= PLACE_LIMIT_PER_TURN) break;
+      if (placements.length >= placeLimit) break;
       const placeable = getPlaceableRoles(cpu, card);
       if (placeable.length === 0) continue;
       const role = placeable[Math.floor(Math.random() * placeable.length)];
@@ -5231,6 +5261,7 @@ function toggleHelp() {
    ・1ターンで役に置けるのは合計2枚まで。
      （新規取得＋保留からの配置を合算）
      残りは強制的に保留行きになる。
+   ・※先攻の最初のターンだけは1枚まで（先攻有利の緩和）。
 5. 役のスロットが全マス埋まったら成立！
    ・上がるかこいこいか選ぶ（5点以上で上がり可）。
    ・こいこい1回ごとに上がり時+3点ボーナス。
