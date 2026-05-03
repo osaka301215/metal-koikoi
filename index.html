@@ -1396,7 +1396,6 @@ aside h2 {
       <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em;" onclick="startRematchGame()">
         対戦開始
       </button>
-      <button onclick="cancelRematchSetup()" style="font-size: 0.85rem;">キャンセル</button>
     </div>
   </div>
 </div>
@@ -4139,9 +4138,9 @@ function renderCeremonyOverlay() {
     const b = state.ceremonyDraw.cardB;
     let txt;
     if (a.atomicNumber > b.atomicNumber) {
-      txt = `${a.symbol}(${a.atomicNumber}) > ${b.symbol}(${b.atomicNumber}) → ${playerNames[0]} の先攻`;
+      txt = `${a.symbol}(原子番号${a.atomicNumber}) > ${b.symbol}(原子番号${b.atomicNumber}) → ${playerNames[0]} の先攻`;
     } else if (b.atomicNumber > a.atomicNumber) {
-      txt = `${b.symbol}(${b.atomicNumber}) > ${a.symbol}(${a.atomicNumber}) → ${playerNames[1]} の先攻`;
+      txt = `${b.symbol}(原子番号${b.atomicNumber}) > ${a.symbol}(原子番号${a.atomicNumber}) → ${playerNames[1]} の先攻`;
     } else {
       txt = '同点 → ランダム決定';
     }
