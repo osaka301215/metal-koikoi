@@ -543,6 +543,57 @@ aside h2 {
   color: rgba(201, 169, 97, 0.6);
 }
 
+/* 上級者モード：元素記号を伏せる（背景は維持、文字だけ透明に） */
+.slot-mini-card.expert-hidden {
+  color: transparent;
+}
+/* 上級者モードでも埋まっているスロットは赤くマーキング */
+.slot-mini-card.expert-hidden.expert-filled {
+  background: rgba(196, 56, 52, 0.85);
+  border-color: var(--vermilion);
+}
+/* 上級者モードトグルスイッチ */
+.expert-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 0.85rem;
+  color: var(--gold);
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  user-select: none;
+}
+.expert-toggle-switch {
+  width: 36px;
+  height: 20px;
+  background: var(--bg-mid);
+  border: 1px solid var(--gold);
+  border-radius: 10px;
+  position: relative;
+  transition: background 0.2s;
+}
+.expert-toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--gold);
+  transition: left 0.2s, background 0.2s;
+}
+.expert-toggle-switch.on {
+  background: var(--vermilion);
+  border-color: var(--vermilion);
+}
+.expert-toggle-switch.on::after {
+  left: 18px;
+  background: var(--gold-bright);
+}
+
 .slot-progress {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.7rem;
@@ -1106,7 +1157,12 @@ aside h2 {
       </div>
     </div>
     
-    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 320px; margin: 0 auto;">
+    <div class="expert-toggle-row" onclick="toggleExpertMode('pvpExpertSwitch')">
+      <span>上級者モード（役を覚える）</span>
+      <div class="expert-toggle-switch" id="pvpExpertSwitch"></div>
+    </div>
+    
+    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 320px; margin: 16px auto 0;">
       <button class="primary" style="padding: 12px; font-size: 0.95rem; letter-spacing: 0.2em;" onclick="startPvpGame()">
         対戦開始
       </button>
@@ -1141,6 +1197,11 @@ aside h2 {
     <div style="max-width: 320px; margin: 0 auto 20px; text-align: left;">
       <div style="font-size: 0.75rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 4px;">あなたの名前</div>
       <input type="text" id="cpuName1Input" maxlength="10" placeholder="あなた" class="name-input">
+    </div>
+    
+    <div class="expert-toggle-row" onclick="toggleExpertMode('cpuExpertSwitch')" style="margin-top: 0; margin-bottom: 16px;">
+      <span>上級者モード（役を覚える）</span>
+      <div class="expert-toggle-switch" id="cpuExpertSwitch"></div>
     </div>
     
     <div style="display: flex; flex-direction: column; gap: 8px; max-width: 320px; margin: 0 auto 20px;">
@@ -1222,6 +1283,11 @@ aside h2 {
       <div style="font-size: 0.75rem; color: var(--gold); opacity: 0.7; margin-top: 12px;">
         ホストが決めたラウンド数で対戦します
       </div>
+    </div>
+    
+    <div class="expert-toggle-row" onclick="toggleExpertMode('onlineExpertSwitch')" style="margin-bottom: 16px;">
+      <span>上級者モード（役を覚える）</span>
+      <div class="expert-toggle-switch" id="onlineExpertSwitch"></div>
     </div>
     
     <div style="display: flex; flex-direction: column; gap: 8px; max-width: 320px; margin: 0 auto;">
@@ -1544,11 +1610,23 @@ let totalRounds = 3;
 let currentRound = 1;
 let cumulativeScores = [0, 0];
 
+// 上級者モード（役の元素記号を伏せる、覚え推奨）
+let expertMode = false;
+
 function selectRounds(n) {
   totalRounds = n;
   // 全ての画面の round-btn を更新（クラス共通化）
   document.querySelectorAll('.round-btn').forEach(btn => {
     btn.classList.toggle('selected', parseInt(btn.dataset.rounds) === n);
+  });
+}
+
+// 上級者モード切替（同じ expertMode フラグを操作するが、表示は全 switch を同期させる）
+function toggleExpertMode(switchId) {
+  expertMode = !expertMode;
+  // 全画面のスイッチ表示を同期
+  document.querySelectorAll('.expert-toggle-switch').forEach(sw => {
+    sw.classList.toggle('on', expertMode);
   });
 }
 
@@ -1675,6 +1753,7 @@ async function createRoom() {
     code: code,
     status: 'waiting', // waiting | playing | finished
     totalRounds: totalRounds, // ホストが選んだラウンド数
+    expertMode: expertMode, // ホストが選んだ上級者モード設定
     createdAt: firebase.database.ServerValue.TIMESTAMP,
     host: {
       name: name,
@@ -1787,6 +1866,10 @@ async function joinRoom() {
     if (typeof room.totalRounds === 'number' && room.totalRounds >= 1 && room.totalRounds <= 7) {
       totalRounds = room.totalRounds;
     }
+    // ホストが設定した上級者モードを反映
+    if (typeof room.expertMode === 'boolean') {
+      expertMode = room.expertMode;
+    }
     
     currentRoom = {
       code: codeRaw,
@@ -1856,6 +1939,7 @@ function pushStateToFirebase() {
       state: serializeState(state),
       currentRound: currentRound,
       totalRounds: totalRounds,
+      expertMode: expertMode,
       cumulativeScores: cumulativeScores,
       lastRoundWinner: lastRoundWinner === null ? 'null' : lastRoundWinner, // null は Firebase で消えるので文字列化
       lastUpdatedBy: myPlayerIndex,
@@ -1945,11 +2029,47 @@ function applyRemoteState(data) {
     if (typeof data.totalRounds === 'number' && data.totalRounds >= 1 && data.totalRounds <= 7) {
       totalRounds = data.totalRounds;
     }
+    if (typeof data.expertMode === 'boolean') {
+      expertMode = data.expertMode;
+    }
     cumulativeScores = toArray(data.cumulativeScores);
     while (cumulativeScores.length < 2) cumulativeScores.push(0);
     lastRoundWinner = (data.lastRoundWinner === 'null') ? null : data.lastRoundWinner;
     
     console.log('[apply] state restored: deck=', state.deck.length, 'field=', state.field.length, 'p0.hand=', state.players[0].hand.length, 'p1.hand=', state.players[1].hand.length);
+    
+    // ============= オンライン演出の検出 =============
+    // ホストから ceremony_animating の state が届いたら、自分も同じ演出を再生
+    if (state.phase === 'ceremony_animating' && state.onlineCeremony && !isPlayingOnlineCeremony) {
+      console.log('[apply] starting online ceremony playback');
+      const ceremonyData = state.onlineCeremony;
+      // ceremonyData の配列を念のため正規化
+      ceremonyData.fieldCards = toArray(ceremonyData.fieldCards);
+      // 演出開始（演出終了後はホストから最終stateが届くのでそれを待つだけ）
+      playOnlineCeremony(ceremonyData, () => {
+        console.log('[apply] guest ceremony done, waiting for host final state');
+        // ゲストは何もしない（ホストからの最終stateが届くのを待つ）
+        // 念のため場札を確定状態にしてrender
+        state.field = ceremonyData.fieldCards.slice();
+        state.onlineCeremony = null;
+        state.phase = 'play_hand'; // ローカルでもphaseを進めて操作可能にする
+        render();
+      });
+      // 通常のrender/log処理はスキップ（演出が走るので）
+      isApplyingRemoteState = false;
+      return;
+    }
+    
+    // 相手側が先にスキップ等で演出を終えて play_hand を送ってきた場合
+    // → 自分の演出タイマーをキャンセルして即時同期
+    if (state.phase === 'play_hand' && isPlayingOnlineCeremony) {
+      console.log('[apply] remote advanced to play_hand while local ceremony playing → force skip');
+      skipCeremonyRequested = true;
+      clearCeremonyTimers();
+      isPlayingOnlineCeremony = false;
+      hideCeremonyOverlay();
+      // state はすでに上書き済みなのでそのままrenderへ続く
+    }
     
     // 相手から状態が届いたら、現在の手番をメッセージログに反映
     // （prev比較だと、自分の endTurn でローカル更新→相手の push 受信、で見逃すケースあり）
@@ -2065,6 +2185,7 @@ function backToMenu() {
   // 演出タイマーもキャンセル
   clearCeremonyTimers();
   skipCeremonyRequested = false;
+  isPlayingOnlineCeremony = false;
   
   // オンライン対戦中ならルームを離脱
   if (currentRoom && currentRoom.ref) {
@@ -2102,6 +2223,9 @@ let lastRoundWinner = null;
 
 // 開始演出のスキップ要求フラグ
 let skipCeremonyRequested = false;
+
+// オンライン演出再生中フラグ（ゲスト側で同じstateを複数回受信しても二重起動しないため）
+let isPlayingOnlineCeremony = false;
 
 // 演出中の保留タイマー一覧（スキップで全部キャンセル）
 let ceremonyTimers = [];
@@ -2143,6 +2267,7 @@ function newGame() {
   selectedRoleIds = [];
   placeModalState = null;
   skipCeremonyRequested = false;
+  isPlayingOnlineCeremony = false;
   clearCeremonyTimers();
   
   render();
@@ -2172,23 +2297,168 @@ function runStartCeremony() {
 }
 
 // オンライン対戦の開始処理（ホストのみ実行）
-// 先攻決定（簡易：ランダムまたは前回負けが先攻）と場札即時展開
+// 先攻決定演出と場札展開演出をホストが計画 → Firebase経由で両者同期 → 両者で同じ演出を再生
 function runOnlineStartCeremony() {
   console.log('[runOnlineStartCeremony] start, deck=', state.deck.length, 'field=', state.field.length);
-  // 先攻決定
-  if (lastRoundWinner === 'draw' || lastRoundWinner === null) {
-    state.currentPlayer = Math.floor(Math.random() * 2);
+  
+  // ============= 演出計画フェーズ：ホストが全データを決定 =============
+  
+  // 先攻決定演出に使う2枚（CPU対戦と同様：山札から2枚取って原子番号比較）
+  let firstCardA = null;
+  let firstCardB = null;
+  let firstPlayer = null;
+  let needsFirstPlayerCeremony = (lastRoundWinner === 'draw' || lastRoundWinner === null);
+  
+  if (needsFirstPlayerCeremony && state.deck.length >= 2) {
+    firstCardA = state.deck.pop(); // プレイヤー0用
+    firstCardB = state.deck.pop(); // プレイヤー1用
+    if (firstCardA.atomicNumber > firstCardB.atomicNumber) {
+      firstPlayer = 0;
+    } else if (firstCardB.atomicNumber > firstCardA.atomicNumber) {
+      firstPlayer = 1;
+    } else {
+      firstPlayer = Math.floor(Math.random() * 2);
+    }
+    // 引いた2枚は山札に戻してシャッフル
+    state.deck.push(firstCardA, firstCardB);
+    state.deck = shuffle(state.deck);
   } else {
-    state.currentPlayer = 1 - lastRoundWinner;
+    // 前ラウンド勝者がいる：負け側が先攻
+    firstPlayer = 1 - lastRoundWinner;
   }
   
-  // 場札を即時8枚展開
-  while (state.field.length < FIELD_REFILL_TARGET && state.deck.length > 0) {
-    state.field.push(state.deck.pop());
+  // 場札展開：8枚を確定（演出はその順番で1枚ずつめくる）
+  const fieldRevealCount = Math.min(FIELD_REFILL_TARGET, state.deck.length);
+  const fieldCards = [];
+  for (let i = 0; i < fieldRevealCount; i++) {
+    fieldCards.push(state.deck.pop());
   }
-  console.log('[runOnlineStartCeremony] after, deck=', state.deck.length, 'field=', state.field.length, 'currentPlayer=', state.currentPlayer);
+  // この時点で state.deck は場札展開後の状態、state.field はまだ空
   
-  startActualGame();
+  // 演出データを state に埋め込む
+  state.onlineCeremony = {
+    needsFirstPlayer: needsFirstPlayerCeremony && firstCardA !== null,
+    firstCardA: firstCardA,
+    firstCardB: firstCardB,
+    firstPlayer: firstPlayer,
+    fieldCards: fieldCards, // 1枚ずつ場に出していくカード列
+  };
+  state.currentPlayer = firstPlayer;
+  state.phase = 'ceremony_animating';
+  
+  console.log('[runOnlineStartCeremony] ceremony planned, firstPlayer=', firstPlayer, 'fieldCards=', fieldCards.length);
+  
+  // Firebaseに送信（ゲストもこれを受信して同じ演出を再生）
+  pushStateToFirebase();
+  
+  // ホスト自身も演出を再生
+  playOnlineCeremony(state.onlineCeremony, () => {
+    // 演出終了後、最終stateに移行
+    state.field = state.onlineCeremony.fieldCards.slice(); // 全カードを場に展開
+    state.onlineCeremony = null;
+    state.phase = 'play_hand';
+    startActualGame();
+  });
+}
+
+// オンライン演出再生（ホストもゲストも同じ関数で同じ演出を再生）
+function playOnlineCeremony(ceremonyData, onDone) {
+  console.log('[playOnlineCeremony] start, needsFirstPlayer=', ceremonyData.needsFirstPlayer);
+  isPlayingOnlineCeremony = true;
+  clearCeremonyTimers();
+  skipCeremonyRequested = false;
+  
+  const finish = () => {
+    isPlayingOnlineCeremony = false;
+    onDone();
+  };
+  
+  const proceedToFieldReveal = () => {
+    if (skipCeremonyRequested) {
+      // スキップ：場札を一気に展開
+      state.field = ceremonyData.fieldCards.slice();
+      hideCeremonyOverlay();
+      render();
+      finish();
+      return;
+    }
+    // 場札展開演出（1枚ずつ）
+    state.field = []; // 念のため初期化
+    let i = 0;
+    const revealOne = () => {
+      if (skipCeremonyRequested) {
+        state.field = ceremonyData.fieldCards.slice();
+        clearCeremonyTimers();
+        render();
+        finish();
+        return;
+      }
+      if (i >= ceremonyData.fieldCards.length) {
+        clearCeremonyTimers();
+        render();
+        finish();
+        return;
+      }
+      state.field.push(ceremonyData.fieldCards[i]);
+      render();
+      i++;
+      ceremonyTimers.push(setTimeout(revealOne, 150));
+    };
+    revealOne();
+  };
+  
+  if (!ceremonyData.needsFirstPlayer) {
+    // 先攻決定演出は不要（前ラウンド勝者がいる）→ 場札展開のみ
+    proceedToFieldReveal();
+    return;
+  }
+  
+  // 先攻決定演出をセット
+  state.ceremonyDraw = {
+    cardA: ceremonyData.firstCardA,
+    cardB: ceremonyData.firstCardB,
+    aRevealed: false,
+    bRevealed: false,
+    decided: false,
+  };
+  showCeremonyOverlay();
+  log('先攻決定中...');
+  
+  // 0.8秒: Aをめくる
+  ceremonyTimers.push(setTimeout(() => {
+    if (skipCeremonyRequested) return finishOnlineFirstPlayerCeremony(ceremonyData, proceedToFieldReveal);
+    state.ceremonyDraw.aRevealed = true;
+    renderCeremonyOverlay();
+  }, 800));
+  
+  // 1.7秒: Bをめくる
+  ceremonyTimers.push(setTimeout(() => {
+    if (skipCeremonyRequested) return finishOnlineFirstPlayerCeremony(ceremonyData, proceedToFieldReveal);
+    state.ceremonyDraw.bRevealed = true;
+    renderCeremonyOverlay();
+  }, 1700));
+  
+  // 2.5秒: 判定発表
+  ceremonyTimers.push(setTimeout(() => {
+    if (skipCeremonyRequested) return finishOnlineFirstPlayerCeremony(ceremonyData, proceedToFieldReveal);
+    state.ceremonyDraw.decided = true;
+    renderCeremonyOverlay();
+  }, 2500));
+  
+  // 4.0秒: 終了 → 場札展開へ
+  ceremonyTimers.push(setTimeout(() => {
+    if (skipCeremonyRequested) return;
+    finishOnlineFirstPlayerCeremony(ceremonyData, proceedToFieldReveal);
+  }, 4000));
+}
+
+function finishOnlineFirstPlayerCeremony(ceremonyData, onDone) {
+  clearCeremonyTimers();
+  state.currentPlayer = ceremonyData.firstPlayer;
+  state.ceremonyDraw = null;
+  hideCeremonyOverlay();
+  log(`${playerNames[ceremonyData.firstPlayer]}の先攻！`);
+  onDone();
 }
 
 // 先攻決定演出：山札の上から2枚を引いて、原子番号大きい方が先攻
@@ -2997,25 +3267,47 @@ function updateRoleModalButtons() {
   koikoiBtn.disabled = selectedRoleIds.length === 0;
 }
 
+// completedRoles から役の点数合計を計算する（こいこいボーナスは含まない）
+function calculateRolePoints(completedRoles) {
+  let points = 0;
+  for (const id of completedRoles) {
+    if (id.endsWith('_full')) {
+      // 炎色反応の完全成立は completePoints
+      const baseId = id.replace(/_full$/, '');
+      const role = ROLE_BY_ID[baseId];
+      if (role) points += role.completePoints;
+    } else {
+      const role = ROLE_BY_ID[id];
+      if (!role) continue;
+      // extensible（炎色反応）で _full が同時に completedRoles にある場合、
+      // baseの分はスキップ（_full の completePoints に含まれている）
+      if (role.extensible && completedRoles.includes(id + '_full')) continue;
+      points += role.points;
+    }
+  }
+  return points;
+}
+
 function confirmAgari() {
   const player = state.players[state.currentPlayer];
-  let points = 0;
   const announcedNames = [];
   
+  // 今回の役モーダルで選ばれた役を completedRoles に追加
   for (const entry of pendingNewRoles) {
     const id = entry.role.id + (entry.mode === 'upgrade' ? '_full' : '');
     if (!selectedRoleIds.includes(id)) continue;
     
     if (entry.mode === 'upgrade') {
-      points += (entry.currentPoints - entry.role.points);
       player.completedRoles.push(entry.role.id + '_full');
       announcedNames.push(entry.role.name + '（完全）');
     } else {
-      points += entry.currentPoints;
       player.completedRoles.push(entry.role.id);
       announcedNames.push(entry.role.name);
     }
   }
+  
+  // completedRoles 全体から点数を再計算（こいこい中に成立済みの役も含む）
+  let points = calculateRolePoints(player.completedRoles);
   
   // こいこいボーナス：宣言回数 × 3点
   let bonusText = '';
@@ -3026,7 +3318,8 @@ function confirmAgari() {
     log(`こいこい${player.koikoiCount}回ボーナス +${bonus}点`);
   }
   
-  player.score += points;
+  // score は今ラウンドの累計を上書き（途中加点があってもこの再計算が正解）
+  player.score = points;
   hideModal('roleModal');
   
   // 処理完了：保留中の役リストをクリア
@@ -3479,26 +3772,25 @@ function cpuCheckRoles() {
   
   if (willAgari) {
     // 上がり処理
-    let points = 0;
     const announcedNames = [];
     for (const entry of newRoles) {
       if (entry.mode === 'upgrade') {
-        points += (entry.currentPoints - entry.role.points);
         cpu.completedRoles.push(entry.role.id + '_full');
         announcedNames.push(entry.role.name + '（完全）');
       } else {
-        points += entry.currentPoints;
         cpu.completedRoles.push(entry.role.id);
         announcedNames.push(entry.role.name);
       }
     }
+    // completedRoles 全体から再計算（こいこい中の役も含む）
+    let points = calculateRolePoints(cpu.completedRoles);
     let bonusText = '';
     if (cpu.koikoiCount > 0) {
       const bonus = cpu.koikoiCount * KOIKOI_BONUS_PER_COUNT;
       points += bonus;
       bonusText = `（こいこい${cpu.koikoiCount}回 +${bonus}点）`;
     }
-    cpu.score += points;
+    cpu.score = points;
     log(`${playerNames[1]}: ${announcedNames.join('、')} ${bonusText} で上がり！${points}点`);
     showEndScreen(`${playerNames[1]}の上がり！`, `${announcedNames.join('、')} ${bonusText} で ${points}点`);
   } else {
@@ -3622,7 +3914,12 @@ function renderSlot(player, role) {
   const div = document.createElement('div');
   div.className = 'slot';
   const progress = slotProgress(player, role.id);
-  if (isSlotComplete(player, role.id)) div.classList.add('complete');
+  const isComplete = isSlotComplete(player, role.id);
+  if (isComplete) div.classList.add('complete');
+  
+  // 上級者モード判定
+  // 完成済みの役は上級者モードでも元素記号を表示する
+  const hideElements = expertMode && !isComplete;
   
   const name = document.createElement('div');
   name.className = 'slot-name';
@@ -3634,11 +3931,16 @@ function renderSlot(player, role) {
   for (const e of role.elements) {
     const m = document.createElement('div');
     m.className = 'slot-mini-card';
-    if (player.slots[role.id] && player.slots[role.id][e]) {
+    const filled = !!(player.slots[role.id] && player.slots[role.id][e]);
+    if (filled) {
       m.textContent = e;
     } else {
       m.classList.add('empty');
       m.textContent = e;
+    }
+    if (hideElements) {
+      m.classList.add('expert-hidden');
+      if (filled) m.classList.add('expert-filled');
     }
     cards.appendChild(m);
   }
@@ -3839,14 +4141,17 @@ function renderRoleList() {
   ROLES.forEach(role => {
     const div = document.createElement('div');
     div.className = 'role-item';
-    if (completedSet.has(role.id)) div.classList.add('completed');
+    const isCompleted = completedSet.has(role.id);
+    if (isCompleted) div.classList.add('completed');
     const points = role.extensible 
       ? `${role.points}-${role.completePoints}`
       : role.points;
+    // 上級者モード：完成済みでない役の元素式は伏せる
+    const formula = (expertMode && !isCompleted) ? '？？？' : role.formula;
     div.innerHTML = `
       <div>
         <div class="role-name">${role.name}</div>
-        <span class="role-formula">${role.formula}</span>
+        <span class="role-formula">${formula}</span>
       </div>
       <div class="role-points">${points}</div>
     `;
