@@ -1250,8 +1250,8 @@ aside h2 {
       <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--vermilion); border-color: var(--vermilion);" onclick="startCpuGame('strong')">
         強 と対戦
       </button>
-      <button disabled style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em;">
-        鬼（工事中）
+      <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--bg-mid); border-color: var(--gold-bright); color: var(--gold-bright);" onclick="startCpuGame('oni')">
+        鬼 と対戦
       </button>
     </div>
     
@@ -4527,6 +4527,513 @@ function cpuStrongKoikoiExpectation(player) {
 }
 
 // ============================================================
+// 「鬼」CPU用 評価ヘルパー関数群（モンテカルロ）
+// ============================================================
+
+const ONI_MC_TRIALS = 100; // モンテカルロ試行回数
+const ONI_CANDIDATE_LIMIT = 5; // 候補手の上限
+
+// ====== シミュレーション用のヘルパー（純粋関数版） ======
+
+// state全体のディープコピー
+function cpuOniCloneState(s) {
+  return JSON.parse(JSON.stringify(s));
+}
+
+// 相手の手札を未確認プールから仮想的にサンプリング
+// 「中間情報」設定なので、相手の進行中スロットや手札の実態は見ない
+// 戻り値: opponent.hand に置き換える札の配列
+function cpuOniSampleOpponentHand(cpu, oppHandLength) {
+  // 未確認プールを構築：全カード - 自分が見えているカード
+  const seenIds = cpuStrongGetSeenCardIds(cpu, state.players[state.players[0] === cpu ? 1 : 0]);
+  
+  // 全カード（state.deck も含めた未確認分）から、見えていないカードを抽出
+  // → 実装：deck の中身 + 相手の hand/pending/slots（未確認）
+  const oppIdx = state.players[0] === cpu ? 1 : 0;
+  const opp = state.players[oppIdx];
+  
+  // 物理的に存在する全カード（deck + opp.hand + opp.pending + opp.slots未公開分）を集める
+  const unseenPool = [];
+  for (const c of state.deck) {
+    if (!seenIds.has(c.id)) unseenPool.push(c);
+  }
+  for (const c of opp.hand) {
+    if (!seenIds.has(c.id)) unseenPool.push(c);
+  }
+  for (const c of opp.pending) {
+    if (!seenIds.has(c.id)) unseenPool.push(c);
+  }
+  // opp.slots の未完成役（公開情報以外）
+  for (const roleId in opp.slots) {
+    if (opp.completedRoles.includes(roleId) || opp.completedRoles.includes(roleId + '_full')) continue;
+    const slot = opp.slots[roleId];
+    for (const sym in slot) {
+      if (slot[sym] && !seenIds.has(slot[sym].id)) unseenPool.push(slot[sym]);
+    }
+  }
+  
+  // シャッフル
+  const shuffled = [...unseenPool];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  
+  // 相手の手札枚数分を取り出し、残りを deck として返す
+  const sampledHand = shuffled.slice(0, oppHandLength);
+  const remainingDeck = shuffled.slice(oppHandLength);
+  
+  return { sampledHand, remainingDeck };
+}
+
+// シミュレーション用の役判定（render等の副作用なし）
+function cpuOniSimDetectNewRoles(player) {
+  const newRoles = [];
+  for (const role of ROLES) {
+    if (player.completedRoles.includes(role.id) && !role.extensible) continue;
+    if (!hasSlot(player, role.id)) continue;
+    if (role.extensible) {
+      let filled = 0;
+      const slot = player.slots[role.id];
+      for (const e of role.elements) if (slot[e]) filled++;
+      if (filled < 3) continue;
+      const wasCompleted = player.completedRoles.includes(role.id);
+      if (!wasCompleted) {
+        const pts = filled >= 6 ? role.completePoints : role.points;
+        newRoles.push({ role, mode: 'new', currentPoints: pts });
+      } else if (filled === 6 && !player.completedRoles.includes(role.id + '_full')) {
+        newRoles.push({ role, mode: 'upgrade', currentPoints: role.completePoints });
+      }
+    } else {
+      let complete = true;
+      const slot = player.slots[role.id];
+      for (const e of role.elements) if (!slot[e]) { complete = false; break; }
+      if (complete) newRoles.push({ role, mode: 'new', currentPoints: role.points });
+    }
+  }
+  return newRoles;
+}
+
+// 並CPUの配置ロジック（シミュレーション用に副作用なし版）
+// 注: cpuPickBestPlacements は state を読まない純粋関数なのでそのまま使える
+//     placeCardInSlot は player を変更する → ローカルでOK
+
+// シミュレータ：1ターン分を進める
+// 戻り値: { ended: bool, reason?: 'agari'|'koikoi'|'no_role', winnerPlayerIdx?: 0|1 }
+function cpuOniSimulateOneTurn(simState, currentIdx, strategy) {
+  const me = simState.players[currentIdx];
+  const opp = simState.players[1 - currentIdx];
+  const field = simState.field;
+  const deck = simState.deck;
+  
+  if (me.hand.length === 0) return { ended: false, skipTurn: true };
+  
+  // 手札選択
+  let handCard;
+  if (strategy === 'normal') {
+    handCard = cpuPickBestHandCard(me, me.hand, field);
+  } else {
+    handCard = me.hand[Math.floor(Math.random() * me.hand.length)];
+  }
+  
+  const matches = findMatches(handCard, field);
+  const pendingCaptures = [];
+  
+  if (matches.length === 0) {
+    me.hand = me.hand.filter(c => c.id !== handCard.id);
+    field.push(handCard);
+  } else {
+    let fc;
+    if (strategy === 'normal') fc = cpuPickBestFieldCard(me, matches);
+    else fc = matches[Math.floor(Math.random() * matches.length)];
+    me.hand = me.hand.filter(c => c.id !== handCard.id);
+    const idx = field.findIndex(c => c.id === fc.id);
+    field.splice(idx, 1);
+    pendingCaptures.push(handCard, fc);
+  }
+  
+  // 山札を引く
+  if (deck.length > 0) {
+    const drawn = deck.pop();
+    const dm = findMatches(drawn, field);
+    if (dm.length === 0) {
+      field.push(drawn);
+    } else {
+      let fc;
+      if (strategy === 'normal') fc = cpuPickBestFieldCard(me, dm);
+      else fc = dm[Math.floor(Math.random() * dm.length)];
+      const idx = field.findIndex(c => c.id === fc.id);
+      field.splice(idx, 1);
+      pendingCaptures.push(drawn, fc);
+    }
+  }
+  
+  // 場札補充
+  while (field.length < FIELD_REFILL_TARGET && deck.length > 0) {
+    if (field.length > FIELD_REFILL_TRIGGER) break;
+    field.push(deck.pop());
+  }
+  
+  // 配置（先攻初手判定をシミュレータでも考慮）
+  if (pendingCaptures.length > 0) {
+    const pendings = [...me.pending];
+    me.pending = [];
+    
+    // simState 上の getCurrentPlaceLimit 相当
+    const isFirstTurnOfFirst = (currentIdx === simState.firstPlayerOfRound && !simState.firstPlayerHasPlayed);
+    const placeLimit = isFirstTurnOfFirst ? 1 : PLACE_LIMIT_PER_TURN;
+    
+    let placements, leftover;
+    if (strategy === 'normal') {
+      // 並CPU placement を placeLimit で動かしたいが、cpuPickBestPlacements は内部で getCurrentPlaceLimit を呼ぶ
+      // → 一時的に state を simState に差し替えて、getCurrentPlaceLimit が正しい値を返すようにする
+      const savedState = state;
+      state = simState; state.currentPlayer = currentIdx;
+      const r = cpuPickBestPlacements(me, pendingCaptures, pendings);
+      state = savedState;
+      placements = r.placements; leftover = r.pendings;
+    } else {
+      // ランダム
+      const allCards = [...pendingCaptures, ...pendings];
+      const shuffled = [...allCards].sort(() => Math.random() - 0.5);
+      placements = [];
+      const placedSet = new Set();
+      for (const card of shuffled) {
+        if (placements.length >= placeLimit) break;
+        const placeable = getPlaceableRoles(me, card);
+        if (placeable.length === 0) continue;
+        const role = placeable[Math.floor(Math.random() * placeable.length)];
+        placements.push({ card, roleId: role.id });
+        placedSet.add(card.id);
+      }
+      leftover = allCards.filter(c => !placedSet.has(c.id));
+    }
+    
+    for (const pl of placements) placeCardInSlot(me, pl.card, pl.roleId);
+    for (const c of leftover) me.pending.push(c);
+  }
+  
+  // 役判定
+  const newRoles = cpuOniSimDetectNewRoles(me);
+  if (newRoles.length === 0) return { ended: false };
+  
+  const totalPoints = newRoles.reduce((sum, e) => {
+    if (e.mode === 'upgrade') return sum + (e.currentPoints - e.role.points);
+    return sum + e.currentPoints;
+  }, 0);
+  
+  const canAgari = totalPoints >= 5;
+  let willAgari;
+  if (!canAgari) {
+    willAgari = false;
+  } else if (strategy === 'normal') {
+    // 並のこいこい判断（簡略版）
+    const expectedBonus = remainingTurns_simulationFallback(me) * 1.5;
+    const koikoiGain = expectedBonus + KOIKOI_BONUS_PER_COUNT;
+    const riskFactor = totalPoints * 0.4;
+    willAgari = (koikoiGain <= riskFactor);
+  } else {
+    willAgari = Math.random() < 0.5;
+  }
+  
+  if (willAgari) {
+    // 上がり処理
+    for (const entry of newRoles) {
+      if (entry.mode === 'upgrade') me.completedRoles.push(entry.role.id + '_full');
+      else me.completedRoles.push(entry.role.id);
+    }
+    let points = calculateRolePoints(me.completedRoles);
+    if (me.koikoiCount > 0) points += me.koikoiCount * KOIKOI_BONUS_PER_COUNT;
+    me.score = points;
+    return { ended: true, winnerPlayerIdx: currentIdx };
+  } else {
+    for (const entry of newRoles) {
+      if (entry.mode === 'upgrade') me.completedRoles.push(entry.role.id + '_full');
+      else me.completedRoles.push(entry.role.id);
+    }
+    me.koikoi = true;
+    me.koikoiCount += 1;
+    return { ended: false };
+  }
+}
+
+// 簡易な「残ターン換算で期待点」関数（シミュレーション内のこいこい判断用）
+function remainingTurns_simulationFallback(player) {
+  return player.hand.length * 0.8;
+}
+
+// 1ラウンドを最後までシミュレート、戻り値: { p0Score, p1Score }
+function cpuOniSimulateRound(simState, startingIdx, strategyP0, strategyP1) {
+  let current = startingIdx;
+  let safety = 0;
+  while (safety < 100) {
+    safety++;
+    const me = simState.players[current];
+    const opp = simState.players[1 - current];
+    
+    if (me.hand.length === 0 && opp.hand.length === 0) break;
+    if (me.hand.length === 0) {
+      current = 1 - current;
+      continue;
+    }
+    
+    simState.currentPlayer = current;
+    const strategy = current === 0 ? strategyP0 : strategyP1;
+    const result = cpuOniSimulateOneTurn(simState, current, strategy);
+    
+    if (result.ended) {
+      // 上がり：勝者の score は確定済み、敗者は0扱い
+      return {
+        p0Score: simState.players[0].score,
+        p1Score: simState.players[1].score,
+        endedByAgari: true,
+      };
+    }
+    
+    // 先攻初手フラグ更新
+    if (current === simState.firstPlayerOfRound && !simState.firstPlayerHasPlayed) {
+      simState.firstPlayerHasPlayed = true;
+    }
+    
+    current = 1 - current;
+  }
+  
+  // 手札切れ：両者の最終得点を確定
+  // こいこい中だった役も含めて completedRoles から再計算するが、
+  // 手札切れ＝誰も上がらなかった場合は、本来は両者0点扱い（金属こいこいルール）
+  // ここではシミュレーション評価用なので、進捗を反映するために completedRoles から計算
+  for (let i = 0; i < 2; i++) {
+    const p = simState.players[i];
+    let points = calculateRolePoints(p.completedRoles);
+    if (p.koikoiCount > 0) points += p.koikoiCount * KOIKOI_BONUS_PER_COUNT;
+    // こいこい中で上がれなかった場合の減点：実ゲームでは0点扱いだが、
+    // 評価用には「こいこい失敗ペナルティ」として控えめに
+    if (p.koikoi && !p.score) {
+      points = points * 0.3; // 失敗のペナルティ（ただし0ではない、進捗の評価のため）
+    }
+    p.score = Math.max(p.score, points);
+  }
+  
+  return {
+    p0Score: simState.players[0].score,
+    p1Score: simState.players[1].score,
+    endedByAgari: false,
+  };
+}
+
+// 「鬼」モンテカルロ：候補アクションを評価
+// candidate: { type: 'hand_card', card } | { type: 'koikoi_decision', willAgari: bool }
+// 戻り値: 平均得点差（自分得点 - 相手得点）
+function cpuOniEvaluateAction(cpu, oppIdx, candidate, trials) {
+  let totalDiff = 0;
+  const cpuIdx = 1 - oppIdx;
+  
+  for (let t = 0; t < trials; t++) {
+    // state全体をコピー
+    const sim = cpuOniCloneState(state);
+    
+    // 相手の手札をサンプリングで置き換え（中間情報設定）
+    const oppHandLen = sim.players[oppIdx].hand.length;
+    const sampled = cpuOniSampleOpponentHand(cpu, oppHandLen);
+    sim.players[oppIdx].hand = sampled.sampledHand;
+    sim.deck = sampled.remainingDeck;
+    
+    // 候補アクションを実行
+    if (candidate.type === 'hand_card') {
+      // 自分のターンとして手札 candidate.card を出す動作を1ターン実行
+      // → 配置はそのターン内で「並」相当の判断
+      const me = sim.players[cpuIdx];
+      const targetCard = me.hand.find(c => c.id === candidate.card.id);
+      if (!targetCard) continue;
+      
+      // 強制的に handCard を targetCard に固定して1ターン進める
+      // シンプルに：まず candidate を強制実行して、残りはシミュレーション
+      const handCard = targetCard;
+      const matches = findMatches(handCard, sim.field);
+      const pendingCaptures = [];
+      
+      if (matches.length === 0) {
+        me.hand = me.hand.filter(c => c.id !== handCard.id);
+        sim.field.push(handCard);
+      } else {
+        // 場札選択は候補で指定されてないので、最善（並ロジック）で
+        const fc = cpuPickBestFieldCard(me, matches);
+        me.hand = me.hand.filter(c => c.id !== handCard.id);
+        const idx = sim.field.findIndex(c => c.id === fc.id);
+        sim.field.splice(idx, 1);
+        pendingCaptures.push(handCard, fc);
+      }
+      
+      // 山札を引く
+      if (sim.deck.length > 0) {
+        const drawn = sim.deck.pop();
+        const dm = findMatches(drawn, sim.field);
+        if (dm.length === 0) {
+          sim.field.push(drawn);
+        } else {
+          const fc = cpuPickBestFieldCard(me, dm);
+          const idx = sim.field.findIndex(c => c.id === fc.id);
+          sim.field.splice(idx, 1);
+          pendingCaptures.push(drawn, fc);
+        }
+      }
+      
+      // 場札補充
+      while (sim.field.length < FIELD_REFILL_TARGET && sim.deck.length > 0) {
+        if (sim.field.length > FIELD_REFILL_TRIGGER) break;
+        sim.field.push(sim.deck.pop());
+      }
+      
+      // 配置
+      if (pendingCaptures.length > 0) {
+        const pendings = [...me.pending];
+        me.pending = [];
+        const savedState = state;
+        state = sim; sim.currentPlayer = cpuIdx;
+        const r = cpuPickBestPlacements(me, pendingCaptures, pendings);
+        state = savedState;
+        for (const pl of r.placements) placeCardInSlot(me, pl.card, pl.roleId);
+        for (const c of r.pendings) me.pending.push(c);
+      }
+      
+      // 役判定
+      const newRoles = cpuOniSimDetectNewRoles(me);
+      if (newRoles.length > 0) {
+        const tp = newRoles.reduce((s, e) => {
+          if (e.mode === 'upgrade') return s + (e.currentPoints - e.role.points);
+          return s + e.currentPoints;
+        }, 0);
+        if (tp >= 5) {
+          // 鬼は基本「上がれるなら上がる」を仮定（候補手評価用）
+          for (const entry of newRoles) {
+            if (entry.mode === 'upgrade') me.completedRoles.push(entry.role.id + '_full');
+            else me.completedRoles.push(entry.role.id);
+          }
+          let points = calculateRolePoints(me.completedRoles);
+          if (me.koikoiCount > 0) points += me.koikoiCount * KOIKOI_BONUS_PER_COUNT;
+          me.score = points;
+          totalDiff += me.score - sim.players[oppIdx].score;
+          continue;
+        } else {
+          // 5点未満は強制こいこい
+          for (const entry of newRoles) {
+            if (entry.mode === 'upgrade') me.completedRoles.push(entry.role.id + '_full');
+            else me.completedRoles.push(entry.role.id);
+          }
+          me.koikoi = true;
+          me.koikoiCount += 1;
+        }
+      }
+      
+      // 先攻初手フラグ更新
+      if (cpuIdx === sim.firstPlayerOfRound && !sim.firstPlayerHasPlayed) {
+        sim.firstPlayerHasPlayed = true;
+      }
+      
+      // 相手のターンに移る、以降ラウンド最後までシミュレート
+      const result = cpuOniSimulateRound(sim, oppIdx, 'normal', 'normal');
+      totalDiff += result.p0Score - result.p1Score;
+      // 注：cpu が p0 か p1 かで符号を調整
+      if (cpuIdx === 1) totalDiff -= 2 * (result.p0Score - result.p1Score); // 反転して再加算
+      // 上の行は紛らわしいので書き直し ↓
+    } else if (candidate.type === 'koikoi_decision') {
+      // こいこい判断のシミュレーション
+      const me = sim.players[cpuIdx];
+      // candidate 通りに上がりorこいこいを実行
+      if (candidate.willAgari) {
+        // 既に成立した役は newRoles として呼び出し元で確定済みのはず
+        // ここでは「上がる」と仮定して即時得点を返す
+        let points = calculateRolePoints(me.completedRoles);
+        if (me.koikoiCount > 0) points += me.koikoiCount * KOIKOI_BONUS_PER_COUNT;
+        totalDiff += points - sim.players[oppIdx].score;
+      } else {
+        // こいこい：以降のシミュレーション
+        const result = cpuOniSimulateRound(sim, oppIdx, 'normal', 'normal');
+        const myFinal = (cpuIdx === 0) ? result.p0Score : result.p1Score;
+        const oppFinal = (cpuIdx === 0) ? result.p1Score : result.p0Score;
+        totalDiff += myFinal - oppFinal;
+      }
+    }
+  }
+  
+  return totalDiff / trials;
+}
+
+// 候補手の生成（手札選択用）：強CPUの上位 ONI_CANDIDATE_LIMIT 手
+function cpuOniGenerateHandCandidates(cpu, hand, field) {
+  if (hand.length <= ONI_CANDIDATE_LIMIT) {
+    // 手札が少なければ全部を候補に
+    return hand.map(c => ({ type: 'hand_card', card: c }));
+  }
+  
+  // 各手札を強CPUと同じ評価で点数付け、上位を返す
+  const scored = hand.map(card => {
+    const matches = findMatches(card, field);
+    if (matches.length > 0) {
+      const bestField = cpuStrongPickFieldCard(cpu, matches);
+      const handContribution = cpuStrongEvaluateCardContribution(cpu, card);
+      const fieldContribution = cpuStrongEvaluateCardContribution(cpu, bestField);
+      return { card, score: handContribution + fieldContribution + 100 }; // 取れる札はバイアス
+    } else {
+      return { card, score: -cpuStrongEvaluateCardContribution(cpu, card) };
+    }
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, ONI_CANDIDATE_LIMIT).map(s => ({ type: 'hand_card', card: s.card }));
+}
+
+// 「鬼」CPUの手札選択：モンテカルロで決定
+function cpuOniPickHandCard(cpu, hand, field) {
+  if (hand.length === 0) return null;
+  if (hand.length === 1) return hand[0];
+  
+  const cpuIdx = (state.players[1] === cpu) ? 1 : 0;
+  const oppIdx = 1 - cpuIdx;
+  
+  const candidates = cpuOniGenerateHandCandidates(cpu, hand, field);
+  
+  let bestCard = null;
+  let bestAvg = -Infinity;
+  let evaluations = [];
+  
+  for (const cand of candidates) {
+    const avg = cpuOniEvaluateAction(cpu, oppIdx, cand, ONI_MC_TRIALS);
+    evaluations.push({ symbol: cand.card.symbol, avg });
+    if (avg > bestAvg) {
+      bestAvg = avg;
+      bestCard = cand.card;
+    }
+  }
+  
+  log(`${playerNames[1]}（鬼の思考）: ${evaluations.map(e => `${e.symbol}=${e.avg.toFixed(1)}`).join(', ')} → ${bestCard.symbol}`);
+  
+  return bestCard;
+}
+
+// 「鬼」のこいこい判断：モンテカルロで決定
+// 既に newRoles が成立した状態で呼ばれる
+function cpuOniDecideKoikoi(cpu, opp, totalPoints, newRoles) {
+  const cpuIdx = (state.players[1] === cpu) ? 1 : 0;
+  const oppIdx = 1 - cpuIdx;
+  
+  // 「上がる」評価
+  const agariCandidate = { type: 'koikoi_decision', willAgari: true };
+  // 「こいこい」評価
+  const koikoiCandidate = { type: 'koikoi_decision', willAgari: false };
+  
+  // 上がりは即時確定なので評価が単純（試行少なくてOK）
+  const agariAvg = cpuOniEvaluateAction(cpu, oppIdx, agariCandidate, 10);
+  const koikoiAvg = cpuOniEvaluateAction(cpu, oppIdx, koikoiCandidate, ONI_MC_TRIALS);
+  
+  // こいこいの方は「上がりボーナス」も加味（rounds が進めば +3点/koikoiCount）
+  const koikoiAvgWithBonus = koikoiAvg + KOIKOI_BONUS_PER_COUNT * 0.5; // 期待値補正
+  
+  log(`${playerNames[1]}（鬼の思考）: 上がり=${agariAvg.toFixed(1)}, こいこい=${koikoiAvgWithBonus.toFixed(1)} → ${koikoiAvgWithBonus > agariAvg ? 'こいこい' : '上がり'}`);
+  
+  return koikoiAvgWithBonus <= agariAvg; // willAgari
+}
+
+// ============================================================
 // CPU 共通：手番起動
 // ============================================================
 
@@ -4562,7 +5069,9 @@ function cpuPlayHand() {
   
   // 難易度別に手札選択
   let handCard;
-  if (cpuDifficulty === 'strong') {
+  if (cpuDifficulty === 'oni') {
+    handCard = cpuOniPickHandCard(cpu, cpu.hand, state.field);
+  } else if (cpuDifficulty === 'strong') {
     handCard = cpuStrongPickHandCard(cpu, cpu.hand, state.field);
   } else if (cpuDifficulty === 'normal') {
     handCard = cpuPickBestHandCard(cpu, cpu.hand, state.field);
@@ -4589,7 +5098,7 @@ function cpuPlayHand() {
   } else {
     // マッチあり → 難易度別に場札を選択
     let fieldCard;
-    if (cpuDifficulty === 'strong') {
+    if (cpuDifficulty === 'oni' || cpuDifficulty === 'strong') {
       fieldCard = cpuStrongPickFieldCard(cpu, matches);
     } else if (cpuDifficulty === 'normal') {
       fieldCard = cpuPickBestFieldCard(cpu, matches);
@@ -4640,7 +5149,7 @@ function cpuDrawFromDeck() {
       // 難易度別に取る場札を選択
       const cpu = state.players[1];
       let fieldCard;
-      if (cpuDifficulty === 'strong') {
+      if (cpuDifficulty === 'oni' || cpuDifficulty === 'strong') {
         fieldCard = cpuStrongPickFieldCard(cpu, matches);
       } else if (cpuDifficulty === 'normal') {
         fieldCard = cpuPickBestFieldCard(cpu, matches);
@@ -4677,8 +5186,8 @@ function cpuFinishCaptures() {
   let placements; // [{card, roleId}, ...]
   let leftoverPendings; // pending に戻す札
   
-  if (cpuDifficulty === 'strong') {
-    // 「強」: 確率ベースで配置を決定
+  if (cpuDifficulty === 'oni' || cpuDifficulty === 'strong') {
+    // 「鬼」「強」: 確率ベースで配置を決定
     const result = cpuStrongPickPlacements(cpu, captures, pendings);
     placements = result.placements;
     leftoverPendings = result.pendings;
@@ -4775,6 +5284,32 @@ function cpuCheckRoles() {
   if (!canAgari) {
     // 5点未満は強制こいこい
     willAgari = false;
+  } else if (cpuDifficulty === 'oni') {
+    // 「鬼」: モンテカルロでこいこい判断
+    // 既に成立した newRoles をいったん commit してから判断する必要があるが、
+    // cpuOniDecideKoikoi 内でクローンしてシミュレートするので、ここでは事前 commit せず判断のみ
+    // 注: cpuOniDecideKoikoi に必要な状態（既に成立した役は cpu.completedRoles 入りしてない）に注意
+    // → 候補手「上がり/こいこい」をシミュレーションするとき、newRoles を cpu に追加した状態を使う
+    // シンプルに：成立した役を一時的に cpu に追加してからシミュレート、最後に状態を戻すのではなく、
+    //   ここでは「成立後の状態でこいこい判断する」を素直に表現するために、
+    //   先に completedRoles を確定させて willAgari 判断、willAgari=false なら koikoi 処理へ進む
+    
+    // 一時的に役を確定（commit）
+    const committedEntries = [];
+    for (const entry of newRoles) {
+      const id = (entry.mode === 'upgrade') ? (entry.role.id + '_full') : entry.role.id;
+      cpu.completedRoles.push(id);
+      committedEntries.push(id);
+    }
+    
+    const opponent = state.players[0];
+    willAgari = cpuOniDecideKoikoi(cpu, opponent, totalPoints, newRoles);
+    
+    // commit を戻す（どっちにせよ後続の処理で再度 commit する）
+    for (const id of committedEntries) {
+      const idx = cpu.completedRoles.lastIndexOf(id);
+      if (idx >= 0) cpu.completedRoles.splice(idx, 1);
+    }
   } else if (cpuDifficulty === 'strong') {
     // 「強」: 確率ベースの正確な期待値計算
     const expectedBonus = cpuStrongKoikoiExpectation(cpu);
