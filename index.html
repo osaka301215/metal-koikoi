@@ -547,10 +547,11 @@ aside h2 {
 .slot-mini-card.expert-hidden {
   color: transparent;
 }
-/* 上級者モードでも埋まっているスロットは赤くマーキング */
-.slot-mini-card.expert-hidden.expert-filled {
+/* 上級者モード：埋まっているスロットは赤背景＋白字で元素記号を表示 */
+.slot-mini-card.expert-filled {
   background: rgba(196, 56, 52, 0.85);
   border-color: var(--vermilion);
+  color: var(--ink);
 }
 /* 上級者モードトグルスイッチ */
 .expert-toggle-row {
@@ -3037,6 +3038,7 @@ function createRoleOption(role, player, cardId, disabled) {
   if (card) cardSymbol = card.symbol;
   
   // 役の元素マス表示：すでに埋まってる元素は白、空きはグレー、いま入れる元素はハイライト
+  // 上級者モード：いま入れる札と既に埋まってる札のみ元素記号を表示。それ以外の空きは伏せる
   const slot = player.slots[role.id] || {};
   const elementsHtml = role.elements.map(e => {
     const isFilled = !!slot[e];
@@ -3046,7 +3048,9 @@ function createRoleOption(role, player, cardId, disabled) {
     } else if (isThisCard) {
       return `<span class="modal-elem incoming">${e}</span>`;
     } else {
-      return `<span class="modal-elem empty">${e}</span>`;
+      // 空きスロット：上級者モードでは元素記号を伏せる
+      const label = expertMode ? '？' : e;
+      return `<span class="modal-elem empty">${label}</span>`;
     }
   }).join('');
   
@@ -3939,8 +3943,13 @@ function renderSlot(player, role) {
       m.textContent = e;
     }
     if (hideElements) {
-      m.classList.add('expert-hidden');
-      if (filled) m.classList.add('expert-filled');
+      // 上級者モード：埋まっているスロットは赤背景＋元素記号、空きスロットは記号を伏せる
+      if (filled) {
+        m.classList.add('expert-filled');
+        // filled は元素記号を表示する（textContentはすでに e）
+      } else {
+        m.classList.add('expert-hidden');
+      }
     }
     cards.appendChild(m);
   }
