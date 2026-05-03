@@ -1867,6 +1867,29 @@ function applyRemoteState(data) {
     
     render();
     console.log('[apply] render completed');
+    
+    // ラウンド終了が同期されてきた場合、自分の画面でも結果画面を表示する
+    if (state.gameOver && !document.getElementById('endModal').classList.contains('active')) {
+      // 相手のラウンド終了タイトルを推測
+      const isFinalRound = currentRound >= totalRounds;
+      let title;
+      if (state.players[0].score > state.players[1].score) {
+        title = `${playerNames[0]} がラウンド勝利`;
+      } else if (state.players[1].score > state.players[0].score) {
+        title = `${playerNames[1]} がラウンド勝利`;
+      } else {
+        title = '引き分け';
+      }
+      const subtitle = `今ラウンド: ${state.players[0].score} - ${state.players[1].score}`;
+      // 自分側の cumulativeScores はすでに同期で受け取っているので、再加算しないように
+      // （注：相手側で finishCurrentRound が cumulativeScores を加算済みのため、こちらでは加算しない）
+      showRoundEndScreen(title, subtitle, isFinalRound);
+    }
+    
+    // ホストが新ラウンド開始した場合：ゲスト側で endModal を閉じる
+    if (!state.gameOver && document.getElementById('endModal').classList.contains('active')) {
+      hideModal('endModal');
+    }
   } catch (e) {
     console.error('[apply] 反映エラー', e);
   } finally {
@@ -3004,6 +3027,9 @@ function endTurn() {
   
   // CPUの手番ならCPUを起動
   scheduleCpuTurnIfNeeded();
+  
+  // オンライン対戦：手番交代を相手に通知
+  pushStateToFirebase();
 }
 
 function endRound(reason) {
@@ -3050,6 +3076,9 @@ function finishCurrentRound(cause, agariInfo) {
   }
   
   showRoundEndScreen(title, subtitle, isFinalRound);
+  
+  // オンライン対戦：ラウンド終了を相手に通知
+  pushStateToFirebase();
 }
 
 function showRoundEndScreen(title, subtitle, isFinalRound) {
@@ -3119,12 +3148,19 @@ function showRoundEndScreen(title, subtitle, isFinalRound) {
       backToMenu();
     };
   } else {
-    btn.textContent = `次のラウンドへ（${currentRound + 1}/${totalRounds}）`;
-    btn.onclick = () => {
-      hideModal('endModal');
-      currentRound++;
-      newGame();
-    };
+    // オンライン対戦時、ホスト（player0）だけがボタンを押せる
+    if (gameMode === 'online' && myPlayerIndex !== 0) {
+      btn.textContent = 'ホストの操作を待っています...';
+      btn.disabled = true;
+      btn.onclick = null;
+    } else {
+      btn.textContent = `次のラウンドへ（${currentRound + 1}/${totalRounds}）`;
+      btn.onclick = () => {
+        hideModal('endModal');
+        currentRound++;
+        newGame();
+      };
+    }
   }
   modal.querySelector('.modal').appendChild(btn);
   
