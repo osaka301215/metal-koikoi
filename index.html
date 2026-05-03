@@ -1870,8 +1870,9 @@ function applyRemoteState(data) {
     
     console.log('[apply] state restored: deck=', state.deck.length, 'field=', state.field.length, 'p0.hand=', state.players[0].hand.length, 'p1.hand=', state.players[1].hand.length);
     
-    // 手番が切り替わったらログも更新
-    if (state.currentPlayer !== prevCurrentPlayer && !state.gameOver) {
+    // 相手から状態が届いたら、現在の手番をメッセージログに反映
+    // （prev比較だと、自分の endTurn でローカル更新→相手の push 受信、で見逃すケースあり）
+    if (!state.gameOver) {
       log(`${playerNames[state.currentPlayer]}の番です。`);
     }
     
