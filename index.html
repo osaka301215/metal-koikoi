@@ -1244,8 +1244,8 @@ aside h2 {
       <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--moss); border-color: var(--moss);" onclick="startCpuGame('weak')">
         弱 と対戦
       </button>
-      <button disabled style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em;">
-        並（工事中）
+      <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--indigo); border-color: var(--indigo);" onclick="startCpuGame('normal')">
+        並 と対戦
       </button>
       <button disabled style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em;">
         強（工事中）
@@ -1257,6 +1257,7 @@ aside h2 {
     
     <div style="font-size: 0.8rem; color: var(--gold); opacity: 0.7; margin-bottom: 20px; line-height: 1.6;">
       <div><strong style="color: var(--gold-bright);">弱</strong>: ランダムに手を打つ初心者向け</div>
+      <div><strong style="color: var(--gold-bright);">並</strong>: 完成に近い役を狙い、こいこい判断もする</div>
     </div>
     
     <div>
@@ -3876,10 +3877,246 @@ function showEndScreen(title, subtitle) {
 }
 
 // ============================================================
-// CPU AI（ランダム判断）
+// CPU AI
 // ============================================================
 let cpuActionTimer = null;
 const CPU_ACTION_DELAY = 800; // CPU の各操作の間隔(ms)
+
+// ============================================================
+// 「並」CPU用 評価ヘルパー関数群
+// ============================================================
+
+// 0〜1の乱数を ±jitter の幅で返す（評価値のゆらぎ用）
+function cpuJitter(value, jitter = 0.2) {
+  // value × (1 ± jitter) の範囲でランダムに揺らす
+  const factor = 1 + (Math.random() * 2 - 1) * jitter;
+  return value * factor;
+}
+
+// 役 roleId を player が完成させるのに、あと何枚必要か
+// すでに完成している（completedRoles に入っている、extensible除く）なら -1 を返す
+// スロットがまだ無い場合は、その役の全元素数を返す
+function cpuRemainingForRole(player, roleId) {
+  const role = ROLE_BY_ID[roleId];
+  if (!role) return 999;
+  // 完成済みで extensible でなければ対象外
+  if (player.completedRoles.includes(roleId) && !role.extensible) return -1;
+  // extensible で _full まで入ってたら対象外
+  if (role.extensible && player.completedRoles.includes(roleId + '_full')) return -1;
+  
+  if (!hasSlot(player, roleId)) {
+    // スロット未生成 → 全元素必要
+    // ただし extensible（炎色反応）は3枚成立が最初の到達点
+    if (role.extensible) return 3;
+    return role.elements.length;
+  }
+  const slot = player.slots[roleId];
+  let needed = 0;
+  for (const e of role.elements) {
+    if (!slot[e]) needed++;
+  }
+  // extensible（炎色反応）は最低3枚で成立、6枚で完全
+  if (role.extensible) {
+    const filled = role.elements.length - needed;
+    if (filled >= 6) return -1; // 完全成立済み
+    if (filled >= 3) {
+      // 6枚到達まで残り何枚
+      return 6 - filled;
+    }
+    // まだ3枚未満なら、3枚到達までの残り
+    return 3 - filled;
+  }
+  return needed;
+}
+
+// player が card を取得した時、どの役にどれだけ「進む」かを評価しスコアを返す
+// スコアは「最も近い完成」を優先するように、残り枚数の逆数の最大値ベース
+function cpuEvaluateCardContribution(player, card) {
+  let bestScore = 0;
+  for (const role of ROLES) {
+    if (!role.elements.includes(card.symbol)) continue;
+    // 既にスロットの該当元素が埋まっているならスキップ
+    if (hasSlot(player, role.id)) {
+      const slot = player.slots[role.id];
+      if (slot[card.symbol]) continue;
+    }
+    const remaining = cpuRemainingForRole(player, role.id);
+    if (remaining < 0) continue; // 完成済み
+    const afterRemaining = remaining - 1;
+    let score;
+    if (afterRemaining === 0) {
+      // 完成スコア: 役の点数を加味
+      const pts = role.extensible 
+        ? (remaining === 3 ? role.points : role.completePoints)
+        : role.points;
+      score = 10 + pts;
+    } else {
+      // 残り枚数が少ないほど高スコア
+      score = 5 / (afterRemaining + 1);
+    }
+    if (score > bestScore) bestScore = score;
+  }
+  return bestScore;
+}
+
+// 場札の集合 fieldCards から「並」ロジックで1枚選ぶ
+// 80%で最善、20%で次善
+function cpuPickBestFieldCard(player, fieldCards) {
+  if (fieldCards.length === 0) return null;
+  if (fieldCards.length === 1) return fieldCards[0];
+  
+  const scored = fieldCards.map(c => ({
+    card: c,
+    score: cpuJitter(cpuEvaluateCardContribution(player, c), 0.2),
+  }));
+  scored.sort((a, b) => b.score - a.score);
+  
+  // 20%で次善手
+  if (scored.length >= 2 && Math.random() < 0.2) {
+    const altIdx = 1 + Math.floor(Math.random() * (scored.length - 1));
+    return scored[altIdx].card;
+  }
+  return scored[0].card;
+}
+
+// 手札 hand の中から「並」ロジックで1枚選ぶ
+// 優先順位:
+//   1. 場札と取れて、自分の役に貢献する組
+//   2. 取れる組（とにかく取る方が捨てるよりまし）
+//   3. 取れない場合：自分の役に貢献しにくい札を捨てる
+function cpuPickBestHandCard(player, hand, field) {
+  if (hand.length === 0) return null;
+  if (hand.length === 1) return hand[0];
+  
+  const scored = hand.map(card => {
+    const matches = findMatches(card, field);
+    if (matches.length > 0) {
+      const bestField = cpuPickBestFieldCard(player, matches);
+      const handContribution = cpuEvaluateCardContribution(player, card);
+      const fieldContribution = cpuEvaluateCardContribution(player, bestField);
+      return {
+        card,
+        canCapture: true,
+        score: handContribution + fieldContribution,
+      };
+    } else {
+      // 捨てる札は貢献度が低いほど良い → 負のスコアで下に押し込む
+      const contribution = cpuEvaluateCardContribution(player, card);
+      return {
+        card,
+        canCapture: false,
+        score: -contribution * 0.5,
+      };
+    }
+  });
+  
+  // 「取れる」を「取れない」より優先
+  scored.sort((a, b) => {
+    if (a.canCapture !== b.canCapture) return a.canCapture ? -1 : 1;
+    return cpuJitter(b.score, 0.2) - cpuJitter(a.score, 0.2);
+  });
+  
+  // 20%で次善手
+  if (scored.length >= 2 && Math.random() < 0.2) {
+    const captureOptions = scored.filter(s => s.canCapture);
+    if (captureOptions.length >= 2) {
+      const altIdx = 1 + Math.floor(Math.random() * (captureOptions.length - 1));
+      return captureOptions[altIdx].card;
+    }
+    const altIdx = 1 + Math.floor(Math.random() * (scored.length - 1));
+    return scored[altIdx].card;
+  }
+  return scored[0].card;
+}
+
+// 取得カード群を「役配置」する組み合わせを greedy に決める
+// 戻り値: { placements: [{card, roleId}, ...], pendings: [card, ...] }
+function cpuPickBestPlacements(player, captures, existingPendings) {
+  const allCards = [...captures, ...existingPendings];
+  
+  // (card, role, afterRemaining) の組を全列挙
+  const options = [];
+  for (const card of allCards) {
+    const placeable = getPlaceableRoles(player, card);
+    for (const role of placeable) {
+      const remaining = cpuRemainingForRole(player, role.id);
+      if (remaining < 0) continue;
+      const afterRemaining = remaining - 1;
+      let score;
+      if (afterRemaining === 0) {
+        const pts = role.extensible
+          ? (remaining === 3 ? role.points : role.completePoints - role.points)
+          : role.points;
+        score = 100 + pts;
+      } else {
+        score = 10 / (afterRemaining + 1);
+      }
+      options.push({
+        card,
+        roleId: role.id,
+        score: cpuJitter(score, 0.15),
+        afterRemaining,
+      });
+    }
+  }
+  
+  options.sort((a, b) => b.score - a.score);
+  
+  const placements = [];
+  const usedCardIds = new Set();
+  const usedSlotKeys = new Set(); // "roleId:symbol" 重複防止
+  
+  for (const opt of options) {
+    if (placements.length >= PLACE_LIMIT_PER_TURN) break;
+    if (usedCardIds.has(opt.card.id)) continue;
+    const slotKey = `${opt.roleId}:${opt.card.symbol}`;
+    if (usedSlotKeys.has(slotKey)) continue;
+    
+    placements.push({ card: opt.card, roleId: opt.roleId });
+    usedCardIds.add(opt.card.id);
+    usedSlotKeys.add(slotKey);
+  }
+  
+  const pendings = allCards.filter(c => !usedCardIds.has(c.id));
+  return { placements, pendings };
+}
+
+// こいこい時の追加得点期待値（簡易計算）
+// 完成可能性 ≈ min(1.0, 残りターン数 / (残り必要枚数 × 3))
+function cpuEstimateKoikoiExpectation(player) {
+  const remainingTurns = player.hand.length;
+  if (remainingTurns === 0) return 0;
+  
+  let expectation = 0;
+  for (const role of ROLES) {
+    if (player.completedRoles.includes(role.id) && !role.extensible) continue;
+    if (role.extensible && player.completedRoles.includes(role.id + '_full')) continue;
+    
+    const needed = cpuRemainingForRole(player, role.id);
+    if (needed <= 0) continue;
+    
+    const probability = Math.min(1.0, remainingTurns / (needed * 3));
+    
+    let bonus;
+    if (role.extensible) {
+      if (player.completedRoles.includes(role.id)) {
+        bonus = role.completePoints - role.points; // 完全成立による差分
+      } else {
+        bonus = role.points; // 3枚成立分
+      }
+    } else {
+      bonus = role.points;
+    }
+    
+    expectation += probability * bonus;
+  }
+  
+  return expectation;
+}
+
+// ============================================================
+// CPU 共通：手番起動
+// ============================================================
 
 // CPU の手番なら起動。手番でなければ何もしない
 function scheduleCpuTurnIfNeeded() {
@@ -3900,7 +4137,7 @@ function scheduleCpuTurnIfNeeded() {
   }, CPU_ACTION_DELAY);
 }
 
-// CPU：手札から1枚ランダム選択 → 場とのマッチを処理
+// CPU：手札から1枚選択 → 場とのマッチを処理
 function cpuPlayHand() {
   if (gameMode !== 'cpu' || state.currentPlayer !== 1 || state.gameOver) return;
   if (state.phase !== 'play_hand') return;
@@ -3911,8 +4148,14 @@ function cpuPlayHand() {
     return;
   }
   
-  // ランダムに手札を1枚選ぶ
-  const handCard = cpu.hand[Math.floor(Math.random() * cpu.hand.length)];
+  // 難易度別に手札選択
+  let handCard;
+  if (cpuDifficulty === 'normal') {
+    handCard = cpuPickBestHandCard(cpu, cpu.hand, state.field);
+  } else {
+    // weak: ランダム
+    handCard = cpu.hand[Math.floor(Math.random() * cpu.hand.length)];
+  }
   log(`${playerNames[1]}: ${handCard.symbol} を出します。`);
   
   // 場とのマッチをチェック
@@ -3930,8 +4173,13 @@ function cpuPlayHand() {
       cpuDrawFromDeck();
     }, CPU_ACTION_DELAY);
   } else {
-    // マッチあり → ランダムに1枚選んで取る
-    const fieldCard = matches[Math.floor(Math.random() * matches.length)];
+    // マッチあり → 難易度別に場札を選択
+    let fieldCard;
+    if (cpuDifficulty === 'normal') {
+      fieldCard = cpuPickBestFieldCard(cpu, matches);
+    } else {
+      fieldCard = matches[Math.floor(Math.random() * matches.length)];
+    }
     cpu.hand = cpu.hand.filter(c => c.id !== handCard.id);
     state.field = state.field.filter(c => c.id !== fieldCard.id);
     state.pendingCaptures.push(handCard, fieldCard);
@@ -3973,8 +4221,14 @@ function cpuDrawFromDeck() {
         cpuFinishCaptures();
       }, CPU_ACTION_DELAY);
     } else {
-      // ランダムに取る
-      const fieldCard = matches[Math.floor(Math.random() * matches.length)];
+      // 難易度別に取る場札を選択
+      const cpu = state.players[1];
+      let fieldCard;
+      if (cpuDifficulty === 'normal') {
+        fieldCard = cpuPickBestFieldCard(cpu, matches);
+      } else {
+        fieldCard = matches[Math.floor(Math.random() * matches.length)];
+      }
       state.field = state.field.filter(c => c.id !== fieldCard.id);
       state.pendingCaptures.push(drawn, fieldCard);
       state.drawnCard = null;
@@ -3999,39 +4253,45 @@ function cpuFinishCaptures() {
   const captures = [...state.pendingCaptures];
   const pendings = [...cpu.pending];
   
-  // 配置候補を作成（取得札+ペンディング札それぞれについて、配置可能な役の候補）
-  // 「役に置くのは2枚まで」制限を考慮しつつランダムに配置
-  
-  // まずペンディングをリセット
+  // ペンディングをリセット（後で再構築）
   cpu.pending = [];
   
-  // 全候補札のリスト（取得+ペンディング）
-  const allCards = [...captures, ...pendings];
+  let placements; // [{card, roleId}, ...]
+  let leftoverPendings; // pending に戻す札
   
-  // ランダムに2枚を選んで「役に配置試行」
-  const shuffled = [...allCards].sort(() => Math.random() - 0.5);
-  let placedCount = 0;
-  const placedSet = new Set();
+  if (cpuDifficulty === 'normal') {
+    // 「並」: 完成までの距離が近い役を greedy に最大2枚配置
+    const result = cpuPickBestPlacements(cpu, captures, pendings);
+    placements = result.placements;
+    leftoverPendings = result.pendings;
+  } else {
+    // 「弱」: ランダム配置
+    const allCards = [...captures, ...pendings];
+    const shuffled = [...allCards].sort(() => Math.random() - 0.5);
+    placements = [];
+    const placedSet = new Set();
+    
+    for (const card of shuffled) {
+      if (placements.length >= PLACE_LIMIT_PER_TURN) break;
+      const placeable = getPlaceableRoles(cpu, card);
+      if (placeable.length === 0) continue;
+      const role = placeable[Math.floor(Math.random() * placeable.length)];
+      placements.push({ card, roleId: role.id });
+      placedSet.add(card.id);
+    }
+    leftoverPendings = allCards.filter(c => !placedSet.has(c.id));
+  }
   
-  for (const card of shuffled) {
-    if (placedCount >= PLACE_LIMIT_PER_TURN) break;
-    
-    const placeable = getPlaceableRoles(cpu, card);
-    if (placeable.length === 0) continue;
-    
-    // ランダムに役を選ぶ
-    const role = placeable[Math.floor(Math.random() * placeable.length)];
-    placeCardInSlot(cpu, card, role.id);
-    placedSet.add(card.id);
-    placedCount++;
-    log(`${playerNames[1]}: ${card.symbol} を「${role.name}」に配置。`);
+  // 配置を実行
+  for (const p of placements) {
+    placeCardInSlot(cpu, p.card, p.roleId);
+    const role = ROLE_BY_ID[p.roleId];
+    log(`${playerNames[1]}: ${p.card.symbol} を「${role.name}」に配置。`);
   }
   
   // 残りはペンディングへ
-  for (const card of allCards) {
-    if (!placedSet.has(card.id)) {
-      cpu.pending.push(card);
-    }
+  for (const card of leftoverPendings) {
+    cpu.pending.push(card);
   }
   
   state.pendingCaptures = [];
@@ -4078,16 +4338,45 @@ function cpuCheckRoles() {
     return;
   }
   
-  // 役成立 → 上がり or こいこい をランダム判断
+  // 役成立 → 上がり or こいこい を判断
   const totalPoints = newRoles.reduce((sum, e) => {
     if (e.mode === 'upgrade') return sum + (e.currentPoints - e.role.points);
     return sum + e.currentPoints;
   }, 0);
   
-  // 5点未満なら必ずこいこい
-  // 5点以上なら 50% 上がり、50% こいこい（ランダム判断）
+  // 上がれるのは合計5点以上
   const canAgari = totalPoints >= 5;
-  const willAgari = canAgari && Math.random() < 0.5;
+  
+  let willAgari;
+  if (!canAgari) {
+    // 5点未満は強制こいこい
+    willAgari = false;
+  } else if (cpuDifficulty === 'normal') {
+    // 「並」: 期待値ベース
+    // こいこい継続で得られる「期待追加点 + こいこいボーナス3点」が
+    // 「失敗リスク（相手に上がられて全部0）」を上回るか
+    const expectedBonus = cpuEstimateKoikoiExpectation(cpu);
+    const koikoiGain = expectedBonus + KOIKOI_BONUS_PER_COUNT;
+    
+    // リスク係数：手札残り少ない時 / 既に高得点時はリスク高い
+    // 簡易：今の totalPoints が高いほど「逃げ得」
+    const riskFactor = totalPoints * 0.4;
+    
+    // こいこい価値 vs リスク
+    // koikoiGain > riskFactor なら継続、そうでなければ上がる
+    // 加えて 20% は判断ミス（逆を選ぶ）で「並」らしさ
+    const baseDecisionAgari = koikoiGain <= riskFactor;
+    if (Math.random() < 0.2) {
+      willAgari = !baseDecisionAgari; // 20%でミス
+    } else {
+      willAgari = baseDecisionAgari;
+    }
+    
+    log(`${playerNames[1]}（思考）: 期待追加点≈${expectedBonus.toFixed(1)}, こいこい価値≈${koikoiGain.toFixed(1)}, リスク≈${riskFactor.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`);
+  } else {
+    // 「弱」: 50/50 ランダム
+    willAgari = Math.random() < 0.5;
+  }
   
   if (willAgari) {
     // 上がり処理
