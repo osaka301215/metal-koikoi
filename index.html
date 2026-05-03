@@ -1855,6 +1855,7 @@ function pushStateToFirebase() {
     const data = {
       state: serializeState(state),
       currentRound: currentRound,
+      totalRounds: totalRounds,
       cumulativeScores: cumulativeScores,
       lastRoundWinner: lastRoundWinner === null ? 'null' : lastRoundWinner, // null は Firebase で消えるので文字列化
       lastUpdatedBy: myPlayerIndex,
@@ -1941,6 +1942,9 @@ function applyRemoteState(data) {
     });
     
     currentRound = data.currentRound || 1;
+    if (typeof data.totalRounds === 'number' && data.totalRounds >= 1 && data.totalRounds <= 7) {
+      totalRounds = data.totalRounds;
+    }
     cumulativeScores = toArray(data.cumulativeScores);
     while (cumulativeScores.length < 2) cumulativeScores.push(0);
     lastRoundWinner = (data.lastRoundWinner === 'null') ? null : data.lastRoundWinner;
@@ -3227,6 +3231,7 @@ function showRoundEndScreen(title, subtitle, isFinalRound) {
   const btn = document.createElement('button');
   btn.className = 'primary';
   if (isFinalRound) {
+    // 最終ラウンド：両プレイヤーとも自由にメニューに戻れる
     btn.textContent = 'メニューに戻る';
     btn.onclick = () => {
       hideModal('endModal');
