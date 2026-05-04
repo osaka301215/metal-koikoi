@@ -1084,6 +1084,15 @@ aside h2 {
   pointer-events: auto !important;
 }
 
+/* チュートリアル中、配置モーダルを「見せるだけ」モードに(全インタラクション無効) */
+body.tut-active.tut-modal-frozen #placeModal * {
+  pointer-events: none !important;
+}
+body.tut-active.tut-modal-frozen #placeModal {
+  pointer-events: auto !important;  /* オーバーレイ自体はそのまま */
+  z-index: 100 !important;  /* チュートリアル吹き出し(203)より下に */
+}
+
 /* チュートリアル中はmatchableも強化(本番ゲームには影響しない) */
 body.tut-active .card.matchable {
   border-color: #ffd966 !important;
@@ -6394,6 +6403,7 @@ const tutorial = {
     this.currentStepIndex = -1;
     this.modalForceTarget = null;
     document.body.classList.remove('tut-active');
+    document.body.classList.remove('tut-modal-frozen');
     document.getElementById('tutOverlay').classList.remove('active');
     document.getElementById('tutProgress').classList.remove('active');
     document.getElementById('tutSkip').classList.remove('active');
@@ -6412,10 +6422,16 @@ const tutorial = {
     this.clearForceTap();
     this.clearExtraGlow();
 
-    // 全モーダルを閉じる
+    // 全モーダルを閉じる + 内部の操作無効化も解除
     ['placeModal', 'roleModal'].forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.classList.remove('active');
+      if (el) {
+        el.classList.remove('active');
+        el.querySelectorAll('button, .modal-role').forEach(b => {
+          b.style.pointerEvents = '';
+          b.style.cursor = '';
+        });
+      }
     });
 
     // ゲーム状態をクリア（メニューに戻る）
@@ -6468,6 +6484,21 @@ const tutorial = {
     this.clearForceTap();
     this.clearExtraGlow();
     this.modalForceTarget = null;
+
+    // 前ステップで開いたモーダルがあれば閉じる(設計安全のため)
+    ['placeModal', 'roleModal'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.classList.contains('active')) {
+        // 現ステップが開きたい場合は setup 内で再度 openPlaceModal される
+        el.classList.remove('active');
+        el.querySelectorAll('button, .modal-role').forEach(b => {
+          b.style.pointerEvents = '';
+          b.style.cursor = '';
+        });
+      }
+    });
+    // モーダル凍結クラスもクリア
+    document.body.classList.remove('tut-modal-frozen');
 
     // 盤面を仕込む
     if (step.setup) {
@@ -6577,6 +6608,25 @@ const tutorial = {
       bubble.style.top = '50%';
       bubble.style.left = '50%';
       bubble.style.transform = 'translate(-50%, -50%)';
+      return;
+    }
+
+    // 画面の特定位置に固定配置(モーダル上部・下部など)
+    if (typeof position === 'object' && position.fixed) {
+      const bRect = bubble.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      bubble.dataset.arrow = 'none';
+      if (position.fixed === 'bottom') {
+        bubble.style.top = `${vh - bRect.height - 24}px`;
+        bubble.style.left = `${vw / 2 - bRect.width / 2}px`;
+      } else if (position.fixed === 'top') {
+        bubble.style.top = '24px';
+        bubble.style.left = `${vw / 2 - bRect.width / 2}px`;
+      }
+      // 画面端調整
+      const left = parseFloat(bubble.style.left);
+      bubble.style.left = `${Math.max(8, Math.min(left, vw - bRect.width - 8))}px`;
       return;
     }
 
@@ -7051,13 +7101,45 @@ const TUTORIAL_STEPS = [
     title: '取った札の配置',
     message: '取った札を<strong>どの役に入れるか</strong>を選びます。<br>役のリストから入れたい役の行をタップ。<br>迷ったら<strong>「保留」</strong>でOK(後で動かせます)。',
     setup: () => {
+      // 仮の取得札(Mg+Ca)を pendingCaptures に仕込んで、本物の配置モーダルを開く
+      const mg = makeTutCard('Mg');
+      const ca = makeTutCard('Ca');
       setTutState({
         self: { hand: [], pending: [] },
         field: [],
       });
+      state.pendingCaptures = [mg, ca];
+      // tut-modal-frozenクラスを付与(CSS側でモーダル内操作を無効化)
+      document.body.classList.add('tut-modal-frozen');
+      // 現在のステップindexを記録(setTimeout内で別ステップに進んでいたら何もしない用)
+      const myStepIndex = tutorial.currentStepIndex;
+      // render()後にモーダルを開く(renderStep内で render() が走るので、その後に確実に開く)
+      setTimeout(() => {
+        if (!tutorial.active || tutorial.currentStepIndex !== myStepIndex) return;
+        try {
+          openPlaceModal();
+          console.log('[tutorial Step 5] modal opened. classes:',
+            document.getElementById('placeModal').classList.toString());
+        } catch (e) {
+          console.warn('[tutorial Step 5] openPlaceModal failed:', e);
+        }
+        // 吹き出しを再配置(モーダルが開いた後に位置を再計算)
+        tutorial.reposition();
+      }, 100);
     },
-    bubblePosition: 'center',
+    // モーダル本体の右側に吹き出しを表示。モーダルが開いていなくても #placeModal は存在するので無問題
+    bubblePosition: {
+      target: '#placeModal .modal',
+      side: 'right',
+    },
     advance: { type: 'next-button', label: '次へ' },
+    onAdvance: () => {
+      // 次に進むときにモーダルを閉じて凍結解除
+      const modal = document.getElementById('placeModal');
+      if (modal) modal.classList.remove('active');
+      document.body.classList.remove('tut-modal-frozen');
+      state.pendingCaptures = [];
+    },
   },
 
   // ---------- Step 6: 2枚配置ルールと保留 ----------
