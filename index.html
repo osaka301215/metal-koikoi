@@ -1279,6 +1279,14 @@ body.tut-active .action-bar > * {
   /* render側で動的に再構築されるので、CSSでは触らない。JSで制御 */
 }
 
+/* チュートリアル中は背景スクロールを固定 */
+body.tut-active {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100%;
+  height: 100vh;
+}
+
 @media (max-width: 600px) {
   .tut-bubble {
     max-width: calc(100vw - 32px);
@@ -1386,9 +1394,9 @@ body.tut-active .action-bar > * {
       <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em; background: var(--bg-mid); color: var(--gold-bright); border-color: var(--gold);" onclick="openOnlineSetup()">
         オンライン対戦
       </button>
-    </div>
-    <div style="margin-top: 24px;">
-      <button onclick="toggleHelp()" style="font-size: 0.85rem;">遊び方</button>
+      <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em; background: var(--bg-mid); color: var(--vermilion); border-color: var(--vermilion);" onclick="toggleHelp()">
+        遊び方（チュートリアル）
+      </button>
     </div>
   </div>
 </div>
@@ -5929,6 +5937,11 @@ function renderCard(card, options = {}) {
     return div;
   }
   
+  // チュートリアル用：カードIDをdata属性として付与
+  if (card && card.id !== undefined) {
+    div.dataset.cardId = card.id;
+  }
+  
   const symbol = document.createElement('div');
   symbol.className = 'card-symbol';
   symbol.textContent = card.symbol;
@@ -6391,14 +6404,21 @@ const tutorial = {
     }
 
     // ハイライトとふきだし配置
-    this.updateHighlight(step.highlight);
+    this.updateHighlight(this.resolveHighlight(step.highlight));
     this.positionBubble(step.bubblePosition);
 
     // 強制タップ
     if (step.advance && step.advance.type === 'forced-tap') {
-      this.applyForceTap(step.advance.target, () => {
+      const opts = {};
+      if (step.advance.cardId !== undefined) {
+        opts.cardId = step.advance.cardId;
+      } else if (step.advance.selector) {
+        opts.selector = step.advance.selector;
+      } else if (step.advance.target) {
+        opts.selector = step.advance.target;  // 旧API互換
+      }
+      this.applyForceTap(opts, () => {
         if (step.onAdvance) step.onAdvance();
-        // タップ後、ステップによってはアニメ待ち
         const delay = step.advance.delay || 100;
         setTimeout(() => this.next(), delay);
       });
@@ -6407,27 +6427,19 @@ const tutorial = {
     // 強制配置（モーダル系）
     if (step.advance && step.advance.type === 'forced-modal-role') {
       this.modalForceTarget = step.advance.roleId;
-      // モーダルが既に開いていれば即適用
       this.applyModalForce();
     }
   },
 
   // ----------------- ハイライト/ふきだし -----------------
-  updateHighlight(highlight) {
+  updateHighlight(target) {
     const spot = document.getElementById('tutSpotlight');
-    if (!highlight) {
+    if (!target) {
       spot.classList.add('center');
       spot.style.top = '50%';
       spot.style.left = '50%';
       spot.style.width = '0';
       spot.style.height = '0';
-      return;
-    }
-    const target = (typeof highlight === 'string')
-      ? document.querySelector(highlight)
-      : highlight;
-    if (!target) {
-      spot.classList.add('center');
       return;
     }
     spot.classList.remove('center');
@@ -6485,57 +6497,82 @@ const tutorial = {
   // ----------------- 強制タップ制御 -----------------
   // ハイライト対象だけをクリック可能にする。それ以外のクリックを抑制。
   forceTapHandler: null,
-  forceTapTarget: null,
+  forceTapTarget: null,    // CSSセレクタ用 (deck等の固定要素)
+  forceTapCardId: null,    // カードid用 (動的に再描画されるカード)
 
-  applyForceTap(targetSelector, onClickCallback) {
-    this.forceTapTarget = targetSelector;
-    const apply = () => {
-      // 全カード/ボタンをいったんpointer-events:none
-      document.querySelectorAll('.card').forEach(c => {
-        c.style.pointerEvents = 'none';
-      });
+  // 現在のターゲット要素を取得（動的に再解決）
+  resolveForceTapElement() {
+    if (this.forceTapCardId !== null) {
+      // data-card-id="N" を持つ要素を探す
+      return document.querySelector(`[data-card-id="${this.forceTapCardId}"]`);
+    }
+    if (this.forceTapTarget) {
+      return document.querySelector(this.forceTapTarget);
+    }
+    return null;
+  },
 
-      const target = document.querySelector(targetSelector);
-      if (!target) return;
+  applyForceTap(opts, onClickCallback) {
+    // opts: { cardId } または { selector }
+    if (opts.cardId !== undefined) {
+      this.forceTapCardId = opts.cardId;
+      this.forceTapTarget = null;
+    } else {
+      this.forceTapTarget = opts.selector;
+      this.forceTapCardId = null;
+    }
+    this.forceTapCallback = onClickCallback;
 
-      target.classList.add('tut-clickable');
-      target.style.pointerEvents = 'auto';
-
-      // ターゲットのクリックイベントは既存のonclickがあるのでそれを保持しつつ、追加でnextを発火
-      const wrappedHandler = (e) => {
-        target.removeEventListener('click', wrappedHandler, true);
-        // 既存の処理を流す
-        if (onClickCallback) {
-          // 既存のonclickは要素のonclickに残っているので自然発火する
-          setTimeout(onClickCallback, 50);
-        }
-      };
-      target.addEventListener('click', wrappedHandler, true);
-      this.forceTapHandler = { el: target, fn: wrappedHandler };
-    };
-
-    apply();
-    // render後に再描画されることがあるので、定期的に再適用
+    this.reapplyForceTap();
     this.startReapplyLoop();
+  },
+
+  reapplyForceTap() {
+    const target = this.resolveForceTapElement();
+    if (!target) return;
+
+    // 全カードをいったん pointer-events:none に
+    document.querySelectorAll('.card').forEach(c => {
+      c.style.pointerEvents = 'none';
+    });
+
+    target.classList.add('tut-clickable');
+    target.style.pointerEvents = 'auto';
+
+    // 既存ハンドラを除去してから新規付与
+    if (this.forceTapHandler && this.forceTapHandler.el) {
+      this.forceTapHandler.el.removeEventListener('click', this.forceTapHandler.fn, true);
+    }
+    const cb = this.forceTapCallback;
+    const wrapped = (e) => {
+      target.removeEventListener('click', wrapped, true);
+      this.forceTapHandler = null;
+      // 既存onclickは要素に残っているので自然発火する
+      if (cb) setTimeout(cb, 50);
+    };
+    target.addEventListener('click', wrapped, true);
+    this.forceTapHandler = { el: target, fn: wrapped };
   },
 
   startReapplyLoop() {
     this.stopReapplyLoop();
     this.reapplyTimer = setInterval(() => {
-      if (!this.active || !this.forceTapTarget) return;
-      const target = document.querySelector(this.forceTapTarget);
+      if (!this.active) return;
+      if (this.forceTapCardId === null && !this.forceTapTarget) return;
+      const target = this.resolveForceTapElement();
       if (!target) return;
       // ハイライト位置の追従
       const step = TUTORIAL_STEPS[this.currentStepIndex];
-      if (step && step.highlight) {
-        this.updateHighlight(step.highlight);
+      if (step) {
+        this.updateHighlight(this.resolveHighlight(step.highlight));
       }
       // tut-clickableが消えていたら再付与
-      if (!target.classList.contains('tut-clickable')) {
-        target.classList.add('tut-clickable');
-        target.style.pointerEvents = 'auto';
+      if (!target.classList.contains('tut-clickable') ||
+          !this.forceTapHandler ||
+          this.forceTapHandler.el !== target) {
+        this.reapplyForceTap();
       }
-      // 他の要素のpointer-eventsもチェック
+      // 他カードの pointer-events 抑制
       document.querySelectorAll('.card').forEach(c => {
         if (c !== target && !c.classList.contains('tut-clickable')) {
           c.style.pointerEvents = 'none';
@@ -6554,6 +6591,8 @@ const tutorial = {
   clearForceTap() {
     this.stopReapplyLoop();
     this.forceTapTarget = null;
+    this.forceTapCardId = null;
+    this.forceTapCallback = null;
     document.querySelectorAll('.card').forEach(c => {
       c.style.pointerEvents = '';
       c.classList.remove('tut-clickable');
@@ -6566,6 +6605,17 @@ const tutorial = {
       this.forceTapHandler.el.removeEventListener('click', this.forceTapHandler.fn, true);
     }
     this.forceTapHandler = null;
+  },
+
+  // ハイライトの動的解決
+  resolveHighlight(highlight) {
+    if (!highlight) return null;
+    if (typeof highlight === 'string') return document.querySelector(highlight);
+    if (typeof highlight === 'function') return highlight();
+    if (highlight.cardId !== undefined) {
+      return document.querySelector(`[data-card-id="${highlight.cardId}"]`);
+    }
+    return highlight;
   },
 
   // ----------------- placeModal内強制 -----------------
@@ -6653,6 +6703,9 @@ function setTutState(opts) {
 // ============================================================
 // チュートリアル: ステップ定義
 // ============================================================
+// チュートリアル内で参照したいカードを保持するスロット
+const tutCards = {};
+
 const TUTORIAL_STEPS = [
 
   // ---------- Step 1: ようこそ ----------
@@ -6673,8 +6726,9 @@ const TUTORIAL_STEPS = [
     title: 'カードの見方',
     message: 'カードには<strong>元素記号</strong>と、その元素が取れる<strong>価数(かすう)</strong>が表示されます。<br>Fe は <strong>+2遷移</strong> と <strong>+3</strong> の2つの価数を持つので、両方のタグがあります。<br>価数は<strong>色で5種類</strong>に分かれていて、<strong>同じ色のタグ同士</strong>がマッチします。',
     setup: () => {
+      tutCards.fe = makeTutCard('Fe');
       setTutState({
-        self: { hand: [makeTutCard('Fe')] },
+        self: { hand: [tutCards.fe] },
       });
     },
     highlight: '#selfHand',
@@ -6682,74 +6736,52 @@ const TUTORIAL_STEPS = [
     advance: { type: 'next-button', label: 'なるほど' },
   },
 
-  // ---------- Step 3: 価数でマッチング ----------
+  // ---------- Step 3: 手札の Fe をタップ ----------
   {
     chapter: '第1章 マッチング',
     title: '価数で取る',
     message: '手札の Fe(<strong>+2遷移</strong> または <strong>+3</strong>)と<strong>同じ価数タグ</strong>を持つ場札を取れます。<br>まず手札の <strong>Fe</strong> をタップしてください。',
     setup: () => {
+      tutCards.fe = makeTutCard('Fe');
+      tutCards.cu = makeTutCard('Cu');
+      tutCards.na = makeTutCard('Na');
+      tutCards.al = makeTutCard('Al');
       setTutState({
-        self: { hand: [makeTutCard('Fe')] },
-        field: [makeTutCard('Cu'), makeTutCard('Na'), makeTutCard('Al')],
-        deck: [makeTutCard('Mg')],  // Step 4 用に Mg を仕込む(末尾がpopされる)
+        self: { hand: [tutCards.fe] },
+        field: [tutCards.cu, tutCards.na, tutCards.al],
+        deck: [makeTutCard('Mg')],
       });
     },
-    highlight: '#selfHand .card',
+    highlight: () => document.querySelector(`[data-card-id="${tutCards.fe.id}"]`),
     bubblePosition: '#selfHand',
     advance: {
       type: 'forced-tap',
-      target: '#selfHand .card',
+      get cardId() { return tutCards.fe.id; },
       delay: 200,
-    },
-    onAdvance: () => {
-      // 自動でStep 3bへ
     },
   },
 
-  // ---------- Step 3b: 場札を取る ----------
+  // ---------- Step 3b: 場の Cu をタップ ----------
   {
     chapter: '第1章 マッチング',
     title: '価数で取る',
     message: '光った場札が取れる候補です。<br>Cu(<strong>+2遷移</strong>)と Al(<strong>+3</strong>)、どちらも Fe とマッチします。<br><strong>Cu をタップ</strong>して取りましょう。',
     setup: () => {
-      // Step 3 の続き：手札Feを選択中の状態を再現
-      const fe = makeTutCard('Fe');
-      const cu = makeTutCard('Cu');
-      const na = makeTutCard('Na');
-      const al = makeTutCard('Al');
+      // selectHandCardが状態をmatch_handに変えているはず。念のため再構築:
+      // ただしカード自体は同じインスタンスで保持
       setTutState({
-        self: { hand: [fe] },
-        field: [cu, na, al],
+        self: { hand: [tutCards.fe] },
+        field: [tutCards.cu, tutCards.na, tutCards.al],
         deck: [makeTutCard('Mg')],
         phase: 'match_hand',
       });
-      state.selectedHandCard = fe;
+      state.selectedHandCard = tutCards.fe;
     },
-    highlight: () => {
-      // 場の Cu を探す
-      const cards = document.querySelectorAll('#fieldCards .card');
-      for (const c of cards) {
-        const sym = c.querySelector('.card-symbol');
-        if (sym && sym.textContent === 'Cu') return c;
-      }
-      return null;
-    },
+    highlight: () => document.querySelector(`[data-card-id="${tutCards.cu.id}"]`),
     bubblePosition: '#fieldCards',
     advance: {
       type: 'forced-tap',
-      get target() {
-        // 動的に Cu を探す
-        const cards = document.querySelectorAll('#fieldCards .card');
-        for (const c of cards) {
-          const sym = c.querySelector('.card-symbol');
-          if (sym && sym.textContent === 'Cu') {
-            // 一意なIDを付ける
-            if (!c.id) c.id = 'tut-target-cu';
-            return '#' + c.id;
-          }
-        }
-        return '#fieldCards .card';
-      },
+      get cardId() { return tutCards.cu.id; },
       delay: 600,
     },
   },
@@ -6760,44 +6792,26 @@ const TUTORIAL_STEPS = [
     title: '山札めくり',
     message: '手札を出した後、自動で<strong>山札から1枚めくられます</strong>。<br>めくった札も場とマッチすれば取れます。<br>いま山札の Mg(<strong>+2典型</strong>)が場の Ca(<strong>+2典型</strong>)とマッチしますね。<strong>Ca をタップ</strong>して取りましょう。',
     setup: () => {
-      // Step 3完了後の状態:Cu取得済み、山札からMgが出てる
-      const drawn = makeTutCard('Mg');
+      tutCards.mg = makeTutCard('Mg');
+      tutCards.ca = makeTutCard('Ca');
+      tutCards.na2 = makeTutCard('Na');
+      tutCards.al2 = makeTutCard('Al');
       setTutState({
         self: {
           hand: [],
           pending: [makeTutCard('Fe'), makeTutCard('Cu')],
         },
-        field: [makeTutCard('Na'), makeTutCard('Al'), makeTutCard('Ca')],
+        field: [tutCards.na2, tutCards.al2, tutCards.ca],
         deck: [],
         phase: 'match_draw',
       });
-      state.drawnCard = drawn;
+      state.drawnCard = tutCards.mg;
     },
-    highlight: () => {
-      const cards = document.querySelectorAll('#fieldCards .card');
-      for (const c of cards) {
-        const sym = c.querySelector('.card-symbol');
-        if (sym && sym.textContent === 'Ca') {
-          if (!c.id) c.id = 'tut-target-ca';
-          return c;
-        }
-      }
-      return null;
-    },
+    highlight: () => document.querySelector(`[data-card-id="${tutCards.ca.id}"]`),
     bubblePosition: '#fieldCards',
     advance: {
       type: 'forced-tap',
-      get target() {
-        const cards = document.querySelectorAll('#fieldCards .card');
-        for (const c of cards) {
-          const sym = c.querySelector('.card-symbol');
-          if (sym && sym.textContent === 'Ca') {
-            if (!c.id) c.id = 'tut-target-ca';
-            return '#' + c.id;
-          }
-        }
-        return '#fieldCards .card';
-      },
+      get cardId() { return tutCards.ca.id; },
       delay: 600,
     },
   },
@@ -6806,22 +6820,15 @@ const TUTORIAL_STEPS = [
   {
     chapter: '第2章 1ターンの流れ',
     title: '取った札の配置',
-    message: '取った札を<strong>どの役に入れるか</strong>を選びます。<br>役のリストから入れたい役の行をタップ。<br>迷ったら<strong>「保留」</strong>でOK(後で動かせます)。<br><br>まず<strong>「次へ」</strong>を押してモーダルを開きましょう。',
+    message: '取った札を<strong>どの役に入れるか</strong>を選びます。<br>役のリストから入れたい役の行をタップ。<br>迷ったら<strong>「保留」</strong>でOK(後で動かせます)。',
     setup: () => {
-      // 役の説明：盤面はクリア
       setTutState({
-        self: {
-          hand: [],
-          pending: [],
-        },
+        self: { hand: [], pending: [] },
         field: [],
       });
     },
     bubblePosition: 'center',
     advance: { type: 'next-button', label: '次へ' },
-    onAdvance: () => {
-      // モーダルを開かずに次のステップへ進む（説明のみ）
-    },
   },
 
   // ---------- Step 6: 2枚配置ルールと保留 ----------
@@ -6856,35 +6863,33 @@ const TUTORIAL_STEPS = [
     advance: { type: 'next-button', label: '次へ' },
   },
 
-  // ---------- Step 8: 役の成立(リーチ) ----------
+  // ---------- Step 8: 役の成立 - 手札Baをタップ ----------
   {
     chapter: '第3章 役と配置',
     title: '役を成立させる',
     message: 'いま<strong>アルカリ土類金属(Mg+Ca+Ba)</strong>の役がリーチ。<br>Mg と Ca はもう取得済みで、あと Ba を取れば成立です。<br><br>手札の <strong>Ba</strong> をタップしてください。',
     setup: () => {
-      // アルカリ土類金属(Mg+Ca+Ba)に Mg と Ca が既に配置されている状態
-      const mgCard = makeTutCard('Mg');
-      const caCard = makeTutCard('Ca');
-      const baInHand = makeTutCard('Ba');
-      const baOnField = makeTutCard('Ba');
-
+      tutCards.baInHand = makeTutCard('Ba');
+      tutCards.baOnField = makeTutCard('Ba');
+      const mgPlaced = makeTutCard('Mg');
+      const caPlaced = makeTutCard('Ca');
       setTutState({
         self: {
-          hand: [baInHand],
+          hand: [tutCards.baInHand],
           pending: [],
           slots: {
-            'alkali_earth': { 'Mg': mgCard, 'Ca': caCard, 'Ba': null },
+            'alkali_earth': { 'Mg': mgPlaced, 'Ca': caPlaced, 'Ba': null },
           },
         },
-        field: [baOnField, makeTutCard('Na'), makeTutCard('Li')],
-        deck: [makeTutCard('K')],  // めくり札は不要だが念のため
+        field: [tutCards.baOnField, makeTutCard('Na'), makeTutCard('Li')],
+        deck: [makeTutCard('K')],
       });
     },
-    highlight: '#selfHand .card',
+    highlight: () => document.querySelector(`[data-card-id="${tutCards.baInHand.id}"]`),
     bubblePosition: '#selfHand',
     advance: {
       type: 'forced-tap',
-      target: '#selfHand .card',
+      get cardId() { return tutCards.baInHand.id; },
       delay: 200,
     },
   },
@@ -6895,51 +6900,31 @@ const TUTORIAL_STEPS = [
     title: '役を成立させる',
     message: '光った場札の <strong>Ba</strong> をタップして取りましょう。',
     setup: () => {
-      const mgCard = makeTutCard('Mg');
-      const caCard = makeTutCard('Ca');
-      const baInHand = makeTutCard('Ba');
-      const baOnField = makeTutCard('Ba');
-
+      // Step 8 のカード参照を保持したまま、phaseのみmatch_handに
+      const mgPlaced = makeTutCard('Mg');
+      const caPlaced = makeTutCard('Ca');
+      tutCards.baInHand = makeTutCard('Ba');
+      tutCards.baOnField = makeTutCard('Ba');
       setTutState({
         self: {
-          hand: [baInHand],
+          hand: [tutCards.baInHand],
           pending: [],
           slots: {
-            'alkali_earth': { 'Mg': mgCard, 'Ca': caCard, 'Ba': null },
+            'alkali_earth': { 'Mg': mgPlaced, 'Ca': caPlaced, 'Ba': null },
           },
         },
-        field: [baOnField, makeTutCard('Na'), makeTutCard('Li')],
+        field: [tutCards.baOnField, makeTutCard('Na'), makeTutCard('Li')],
         deck: [makeTutCard('K')],
         phase: 'match_hand',
       });
-      state.selectedHandCard = baInHand;
+      state.selectedHandCard = tutCards.baInHand;
     },
-    highlight: () => {
-      const cards = document.querySelectorAll('#fieldCards .card');
-      for (const c of cards) {
-        const sym = c.querySelector('.card-symbol');
-        if (sym && sym.textContent === 'Ba') {
-          if (!c.id) c.id = 'tut-target-ba';
-          return c;
-        }
-      }
-      return null;
-    },
+    highlight: () => document.querySelector(`[data-card-id="${tutCards.baOnField.id}"]`),
     bubblePosition: '#fieldCards',
     advance: {
       type: 'forced-tap',
-      get target() {
-        const cards = document.querySelectorAll('#fieldCards .card');
-        for (const c of cards) {
-          const sym = c.querySelector('.card-symbol');
-          if (sym && sym.textContent === 'Ba') {
-            if (!c.id) c.id = 'tut-target-ba';
-            return '#' + c.id;
-          }
-        }
-        return '#fieldCards .card';
-      },
-      delay: 1500,  // 山札めくりのアニメ待ち
+      get cardId() { return tutCards.baOnField.id; },
+      delay: 1500,
     },
   },
 
@@ -6949,7 +6934,6 @@ const TUTORIAL_STEPS = [
     title: '上がる? こいこい?',
     message: '役が成立すると、<strong>「上がる」か「こいこい」</strong>を選べます。<br><br>このターンで<strong>7点以上</strong>あれば上がれます(弱CPU戦のみ5点でOK)。<br><br>アルカリ土類金属は5点なので、<strong>このまま上がるには点数不足</strong>。「こいこい」して伸ばすか、点数を貯めるしかありません。',
     setup: () => {
-      // モーダルは開かずに、説明のみ
       setTutState({
         self: {
           hand: [],
@@ -6998,12 +6982,9 @@ const TUTORIAL_STEPS = [
       type: 'final-button',
       buttons: [
         { label: 'CPU弱と対戦', action: () => {
-          // CPU弱対戦を開始
           if (typeof openCpuSetup === 'function') openCpuSetup();
         }},
-        { label: 'メニューに戻る', secondary: true, action: () => {
-          // 何もしない (end側でメニューを開く)
-        }},
+        { label: 'メニューに戻る', secondary: true, action: () => {} },
       ],
     },
   },
