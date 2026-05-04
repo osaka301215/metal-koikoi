@@ -1247,10 +1247,10 @@ aside h2 {
       <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--indigo); border-color: var(--indigo);" onclick="startCpuGame('normal')">
         並 と対戦
       </button>
-      <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--vermilion); border-color: var(--vermilion);" onclick="startCpuGame('strong')">
+      <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--vermilion); border-color: var(--vermilion);" onclick="startCpuGame('oni')">
         強 と対戦
       </button>
-      <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--bg-mid); border-color: var(--gold-bright); color: var(--gold-bright);" onclick="startCpuGame('oni')">
+      <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--bg-mid); border-color: var(--gold-bright); color: var(--gold-bright);" onclick="startCpuGame('strong')">
         鬼 と対戦
       </button>
     </div>
@@ -1598,8 +1598,23 @@ ROLES.forEach(r => { ROLE_BY_ID[r.id] = r; });
 const FIELD_REFILL_TARGET = 8;
 const FIELD_REFILL_TRIGGER = 2;
 
-// こいこい1回ごとの上がり時ボーナス点
+// こいこい/上がりボーナス
 const KOIKOI_BONUS_PER_COUNT = 3;
+
+// 上がるのに必要な最低得点（このターンの新規成立役の合計）
+// これ未満なら強制こいこい
+// 弱CPUと対戦時のみ5点（初心者向け）、それ以外は7点
+const AGARI_MIN_POINTS = 7;
+const AGARI_MIN_POINTS_WEAK = 5;
+
+// 現在の上がり閾値を返す（動的）
+// 弱CPUとの対戦時のみ5点に下げる
+function getAgariMinPoints() {
+  if (gameMode === 'cpu' && cpuDifficulty === 'weak') {
+    return AGARI_MIN_POINTS_WEAK;
+  }
+  return AGARI_MIN_POINTS;
+}
 
 // ============================================================
 // ゲーム状態
@@ -1674,8 +1689,8 @@ let playerNames = ['一の人', '二の人'];
 const CPU_DIFFICULTY_LABEL = {
   weak: 'CPU(弱)',
   normal: 'CPU(並)',
-  strong: 'CPU(強)',
-  oni: 'CPU(鬼)',
+  strong: 'CPU(鬼)',
+  oni: 'CPU(強)',
 };
 
 // ラウンド設定
@@ -3564,8 +3579,13 @@ function updateRoleModalButtons() {
   const agariBtn = document.getElementById('roleModalAgariBtn');
   const koikoiBtn = document.getElementById('roleModalKoikoiBtn');
   
-  agariBtn.textContent = `上がる (${totalPoints}点)`;
-  agariBtn.disabled = totalPoints < 5 || selectedRoleIds.length === 0;
+  const minPoints = getAgariMinPoints();
+  if (totalPoints < minPoints) {
+    agariBtn.textContent = `上がる (${totalPoints}点・${minPoints}点必要)`;
+  } else {
+    agariBtn.textContent = `上がる (${totalPoints}点)`;
+  }
+  agariBtn.disabled = totalPoints < minPoints || selectedRoleIds.length === 0;
   koikoiBtn.disabled = selectedRoleIds.length === 0;
 }
 
@@ -4565,8 +4585,8 @@ function cpuStrongKoikoiExpectation(player) {
 // 「鬼」CPU用 評価ヘルパー関数群（モンテカルロ）
 // ============================================================
 
-const ONI_MC_TRIALS = 100; // モンテカルロ試行回数
-const ONI_CANDIDATE_LIMIT = 5; // 候補手の上限
+const ONI_MC_TRIALS = 150; // モンテカルロ試行回数
+const ONI_CANDIDATE_LIMIT = 7; // 候補手の上限
 
 // ====== シミュレーション用のヘルパー（純粋関数版） ======
 
@@ -4665,7 +4685,12 @@ function cpuOniSimulateOneTurn(simState, currentIdx, strategy) {
   
   // 手札選択
   let handCard;
-  if (strategy === 'normal') {
+  if (strategy === 'strong') {
+    const _saved = state;
+    state = simState; simState.currentPlayer = currentIdx;
+    handCard = cpuStrongPickHandCard(me, me.hand, field);
+    state = _saved;
+  } else if (strategy === 'normal') {
     handCard = cpuPickBestHandCard(me, me.hand, field);
   } else {
     handCard = me.hand[Math.floor(Math.random() * me.hand.length)];
@@ -4679,7 +4704,11 @@ function cpuOniSimulateOneTurn(simState, currentIdx, strategy) {
     field.push(handCard);
   } else {
     let fc;
-    if (strategy === 'normal') fc = cpuPickBestFieldCard(me, matches);
+    if (strategy === 'strong') {
+      const _saved = state; state = simState;
+      fc = cpuStrongPickFieldCard(me, matches);
+      state = _saved;
+    } else if (strategy === 'normal') fc = cpuPickBestFieldCard(me, matches);
     else fc = matches[Math.floor(Math.random() * matches.length)];
     me.hand = me.hand.filter(c => c.id !== handCard.id);
     const idx = field.findIndex(c => c.id === fc.id);
@@ -4695,7 +4724,11 @@ function cpuOniSimulateOneTurn(simState, currentIdx, strategy) {
       field.push(drawn);
     } else {
       let fc;
-      if (strategy === 'normal') fc = cpuPickBestFieldCard(me, dm);
+      if (strategy === 'strong') {
+        const _saved = state; state = simState;
+        fc = cpuStrongPickFieldCard(me, dm);
+        state = _saved;
+      } else if (strategy === 'normal') fc = cpuPickBestFieldCard(me, dm);
       else fc = dm[Math.floor(Math.random() * dm.length)];
       const idx = field.findIndex(c => c.id === fc.id);
       field.splice(idx, 1);
@@ -4719,7 +4752,13 @@ function cpuOniSimulateOneTurn(simState, currentIdx, strategy) {
     const placeLimit = isFirstTurnOfFirst ? 1 : PLACE_LIMIT_PER_TURN;
     
     let placements, leftover;
-    if (strategy === 'normal') {
+    if (strategy === 'strong') {
+      const _saved = state;
+      state = simState; state.currentPlayer = currentIdx;
+      const r = cpuStrongPickPlacements(me, pendingCaptures, pendings);
+      state = _saved;
+      placements = r.placements; leftover = r.pendings;
+    } else if (strategy === 'normal') {
       // 並CPU placement を placeLimit で動かしたいが、cpuPickBestPlacements は内部で getCurrentPlaceLimit を呼ぶ
       // → 一時的に state を simState に差し替えて、getCurrentPlaceLimit が正しい値を返すようにする
       const savedState = state;
@@ -4757,7 +4796,7 @@ function cpuOniSimulateOneTurn(simState, currentIdx, strategy) {
     return sum + e.currentPoints;
   }, 0);
   
-  const canAgari = totalPoints >= 5;
+  const canAgari = totalPoints >= getAgariMinPoints();
   let willAgari;
   if (!canAgari) {
     willAgari = false;
@@ -4978,7 +5017,7 @@ function cpuOniEvaluateAction(cpu, oppIdx, candidate, trials) {
           if (e.mode === 'upgrade') return s + (e.currentPoints - e.role.points);
           return s + e.currentPoints;
         }, 0);
-        if (tp >= 5) {
+        if (tp >= getAgariMinPoints()) {
           // 鬼は基本「上がれるなら上がる」を仮定（候補手評価用）
           for (const entry of newRoles) {
             if (entry.mode === 'upgrade') me.completedRoles.push(entry.role.id + '_full');
@@ -4994,7 +5033,7 @@ function cpuOniEvaluateAction(cpu, oppIdx, candidate, trials) {
           });
           continue;
         } else {
-          // 5点未満は強制こいこい
+          // 閾値未満は強制こいこい
           for (const entry of newRoles) {
             if (entry.mode === 'upgrade') me.completedRoles.push(entry.role.id + '_full');
             else me.completedRoles.push(entry.role.id);
@@ -5081,7 +5120,7 @@ function cpuOniPickHandCard(cpu, hand, field) {
     }
   }
   
-  log(`${playerNames[1]}（鬼の思考）: ${evaluations.map(e => `${e.symbol}=${e.avg.toFixed(1)}`).join(', ')} → ${bestCard.symbol}`);
+  log(`${playerNames[1]}（強の思考）: ${evaluations.map(e => `${e.symbol}=${e.avg.toFixed(1)}`).join(', ')} → ${bestCard.symbol}`);
   
   return bestCard;
 }
@@ -5123,7 +5162,9 @@ function cpuOniDecideKoikoi(cpu, opp, totalPoints, newRoles) {
   if (isFinalRound && agariAvg >= 25) {
     decisionMargin = 5; // 確実勝利できるなら、+5以上の優位がない限り上がる
   } else {
-    decisionMargin = 1; // 通常時は微妙な差なら上がる（手堅さ）
+    // 7点ルールでは上がりに高得点が必要 → こいこい継続が有利な場面が多い
+    // マージンを -1 にして、ほぼ同等ならこいこい継続
+    decisionMargin = -1;
   }
   const willAgari = (koikoiAvgWithBonus < agariAvg + decisionMargin);
   
@@ -5133,7 +5174,7 @@ function cpuOniDecideKoikoi(cpu, opp, totalPoints, newRoles) {
   const cumDiff = myCum - oppCum;
   const roundLabel = isFinalRound ? '最終R' : `R${currentRound}/${totalRounds}`;
   const cumLabel = `累計${myCum}vs${oppCum}(${cumDiff >= 0 ? '+' : ''}${cumDiff})`;
-  log(`${playerNames[1]}（鬼の思考・${roundLabel}・${cumLabel}）: 上がり=${agariAvg.toFixed(1)}, こいこい=${koikoiAvgWithBonus.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`);
+  log(`${playerNames[1]}（強の思考・${roundLabel}・${cumLabel}）: 上がり=${agariAvg.toFixed(1)}, こいこい=${koikoiAvgWithBonus.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`);
   
   return willAgari;
 }
@@ -5382,12 +5423,12 @@ function cpuCheckRoles() {
     return sum + e.currentPoints;
   }, 0);
   
-  // 上がれるのは合計5点以上
-  const canAgari = totalPoints >= 5;
+  // 上がれるのは合計 getAgariMinPoints() 点以上
+  const canAgari = totalPoints >= getAgariMinPoints();
   
   let willAgari;
   if (!canAgari) {
-    // 5点未満は強制こいこい
+    // 閾値未満は強制こいこい
     willAgari = false;
   } else if (cpuDifficulty === 'oni') {
     // 「鬼」: モンテカルロでこいこい判断
@@ -5416,7 +5457,8 @@ function cpuCheckRoles() {
       if (idx >= 0) cpu.completedRoles.splice(idx, 1);
     }
   } else if (cpuDifficulty === 'strong') {
-    // 「強」: 確率ベースの正確な期待値計算（v3.20と同じ、ジッターのみ調整）
+    // 内部的には「strong」だが表示は「鬼」（ラベル入れ替え後）
+    // 確率ベースの正確な期待値計算（v3.20と同じ、ジッターのみ調整）
     const expectedBonus = cpuStrongKoikoiExpectation(cpu);
     const koikoiGain = expectedBonus + KOIKOI_BONUS_PER_COUNT;
     
@@ -5433,7 +5475,7 @@ function cpuCheckRoles() {
       willAgari = baseDecisionAgari;
     }
     
-    log(`${playerNames[1]}（思考）: 期待追加点≈${expectedBonus.toFixed(1)}, こいこい価値≈${koikoiGain.toFixed(1)}, リスク≈${riskFactor.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`);
+    log(`${playerNames[1]}（鬼の思考）: 期待追加点≈${expectedBonus.toFixed(1)}, こいこい価値≈${koikoiGain.toFixed(1)}, リスク≈${riskFactor.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`);
   } else if (cpuDifficulty === 'normal') {
     // 「並」: 期待値ベース（雑な近似）
     const expectedBonus = cpuEstimateKoikoiExpectation(cpu);
@@ -5889,7 +5931,7 @@ function toggleHelp() {
      残りは強制的に保留行きになる。
    ・※先攻の最初のターンだけは1枚まで（先攻有利の緩和）。
 5. 役のスロットが全マス埋まったら成立！
-   ・上がるかこいこいか選ぶ（5点以上で上がり可）。
+   ・上がるかこいこいか選ぶ（7点以上で上がり可、弱CPU戦のみ5点）。
    ・こいこい1回ごとに上がり時+3点ボーナス。
 
 【炎色反応の特例】
