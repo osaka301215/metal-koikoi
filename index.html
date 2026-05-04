@@ -1494,7 +1494,7 @@ body.tut-active .action-bar > * {
       </div>
       <div class="expert-toggle-row" onclick="toggleBgm()" style="margin-top: 0; justify-content: space-between; padding: 0 8px;">
         <span>BGM</span>
-        <div class="expert-toggle-switch" id="bgmSwitch"></div>
+        <div class="expert-toggle-switch bgm-switch" id="bgmSwitch"></div>
       </div>
     </div>
   </div>
@@ -1850,6 +1850,7 @@ body.tut-active .action-bar > * {
       <button onclick="newGame()">新しいゲーム</button>
       <button onclick="toggleRoleList()">役一覧</button>
       <button onclick="toggleHelp()">遊び方</button>
+      <button onclick="toggleBgm()" id="bgmGameBtn" data-bgm-btn>BGM：OFF</button>
       <button onclick="switchViewpoint()" id="viewpointBtn" style="border-color: var(--vermilion); color: var(--vermilion); display: none;">視点切替（テスト用）</button>
     </div>
   </main>
@@ -2099,19 +2100,49 @@ function applyTheme() {
   if (sw) sw.classList.toggle('on', userSettings.theme === 'japanese');
 }
 
-function applyBgm() {
+function syncBgmSwitches() {
+  document.querySelectorAll('.bgm-switch').forEach(sw => {
+    sw.classList.toggle('on', userSettings.bgm);
+  });
+  // ゲーム画面のBGMボタン（[data-bgm-btn]）のラベル更新
+  document.querySelectorAll('[data-bgm-btn]').forEach(btn => {
+    btn.textContent = userSettings.bgm ? 'BGM：ON' : 'BGM：OFF';
+    btn.style.color = userSettings.bgm ? 'var(--gold-bright)' : '';
+    btn.style.borderColor = userSettings.bgm ? 'var(--gold-bright)' : '';
+  });
+}
+
+function applyBgm(opts) {
+  opts = opts || {};
   const audio = document.getElementById('bgmAudio');
-  const sw = document.getElementById('bgmSwitch');
-  if (sw) sw.classList.toggle('on', userSettings.bgm);
+  syncBgmSwitches();
   if (!audio) return;
   audio.volume = 0.4;
   if (userSettings.bgm) {
-    // ユーザー操作後に呼ばれる前提なので再生可能
+    if (opts.fromStart) {
+      try { audio.currentTime = 0; } catch (e) {}
+    }
     const p = audio.play();
     if (p && p.catch) p.catch(() => {/* 自動再生ブロック時は無視 */});
   } else {
     audio.pause();
   }
+}
+
+// BGMを停止（設定はONのまま、ただ一時停止する）
+function pauseBgm() {
+  const audio = document.getElementById('bgmAudio');
+  if (audio) audio.pause();
+}
+
+// BGMを冒頭から再開（設定がONの場合のみ）
+function restartBgm() {
+  if (userSettings.bgm) applyBgm({ fromStart: true });
+}
+
+// BGMを途中から再開（設定がONの場合のみ）
+function resumeBgm() {
+  if (userSettings.bgm) applyBgm();
 }
 
 function toggleTheme() {
@@ -2130,8 +2161,7 @@ function toggleBgm() {
 window.addEventListener('DOMContentLoaded', () => {
   applyTheme();
   // BGMはスイッチ表示のみ反映、再生は最初のユーザー操作後に行う
-  const sw = document.getElementById('bgmSwitch');
-  if (sw) sw.classList.toggle('on', userSettings.bgm);
+  syncBgmSwitches();
   if (userSettings.bgm) {
     const tryPlay = () => {
       applyBgm();
@@ -2149,11 +2179,13 @@ window.addEventListener('DOMContentLoaded', () => {
 function openPvpSetup() {
   document.getElementById('startScreen').classList.remove('active');
   document.getElementById('pvpSetupScreen').classList.add('active');
+  pauseBgm();
 }
 
 function closePvpSetup() {
   document.getElementById('pvpSetupScreen').classList.remove('active');
   document.getElementById('startScreen').classList.add('active');
+  resumeBgm();
 }
 
 // 2人対戦ゲーム開始
@@ -2172,11 +2204,13 @@ function startPvpGame() {
 function openCpuSetup() {
   document.getElementById('startScreen').classList.remove('active');
   document.getElementById('cpuSetupScreen').classList.add('active');
+  pauseBgm();
 }
 
 function closeCpuSetup() {
   document.getElementById('cpuSetupScreen').classList.remove('active');
   document.getElementById('startScreen').classList.add('active');
+  resumeBgm();
 }
 
 function startCpuGame(difficulty) {
@@ -2202,11 +2236,13 @@ let roomListenerUnsubscribe = null; // ルームの監視解除関数
 function openOnlineSetup() {
   document.getElementById('startScreen').classList.remove('active');
   document.getElementById('onlineSetupScreen').classList.add('active');
+  pauseBgm();
 }
 
 function closeOnlineSetup() {
   document.getElementById('onlineSetupScreen').classList.remove('active');
   document.getElementById('startScreen').classList.add('active');
+  resumeBgm();
 }
 
 // オンライン用ラウンド数選択画面（ホストのみ）
@@ -2687,6 +2723,9 @@ function startGame(mode) {
     vpBtn.style.display = (mode === 'pvp') ? '' : 'none';
   }
   
+  // ゲーム開始時：先攻決定セレモニーから冒頭BGMを再生
+  restartBgm();
+  
   newGame();
 }
 
@@ -2933,6 +2972,8 @@ function backToMenu() {
   document.getElementById('roomJoinScreen').classList.remove('active');
   document.getElementById('rematchSetupScreen').classList.remove('active');
   document.getElementById('startScreen').classList.add('active');
+  // メニューに戻ったらBGMを再開（タイトル画面で流す）
+  resumeBgm();
 }
 
 // 前ラウンドの勝者（先攻決定用）
