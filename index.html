@@ -644,6 +644,101 @@ aside h2 {
   background: var(--gold-bright);
 }
 
+/* ランキング画面 */
+.ranking-tabs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.ranking-tab {
+  padding: 8px 28px;
+  font-size: 0.95rem;
+  letter-spacing: 0.3em;
+  font-family: 'Shippori Mincho', serif;
+  background: var(--bg-mid);
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ranking-tab:hover {
+  background: rgba(201, 169, 97, 0.1);
+}
+.ranking-tab.active {
+  background: var(--vermilion);
+  border-color: var(--vermilion);
+  color: var(--bg-card);
+  font-weight: 700;
+}
+.ranking-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 600px) {
+  .ranking-columns {
+    grid-template-columns: 1fr;
+  }
+}
+.ranking-column {
+  background: rgba(201, 169, 97, 0.05);
+  border: 1px solid rgba(201, 169, 97, 0.25);
+  border-radius: 6px;
+  padding: 16px 14px;
+}
+.ranking-column-title {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 0.95rem;
+  color: var(--gold-bright);
+  letter-spacing: 0.15em;
+  text-align: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(201, 169, 97, 0.25);
+}
+.ranking-column-sub {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--gold);
+  opacity: 0.7;
+  margin-top: 2px;
+  letter-spacing: 0.15em;
+}
+.ranking-list-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ranking-row {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: rgba(26, 20, 16, 0.4);
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+}
+.ranking-rank {
+  font-weight: 700;
+  font-size: 1rem;
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+.ranking-initials {
+  color: var(--bg-card);
+  letter-spacing: 0.15em;
+  font-weight: 500;
+}
+.ranking-value {
+  color: var(--gold-bright);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
 .slot-progress {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.7rem;
@@ -1456,6 +1551,68 @@ body.tut-active .action-bar > * {
 <!-- BGM -->
 <audio id="bgmAudio" loop preload="auto" src="koikoibgm.mp3"></audio>
 
+<!-- ランキング登録ダイアログ -->
+<div class="modal-overlay" id="rankingRegisterOverlay" style="background: rgba(26, 20, 16, 0.92); z-index: 1000;">
+  <div class="modal" style="max-width: 440px; width: 90%; padding: 28px 24px;">
+    <div style="font-family: 'Shippori Mincho', serif; font-size: 1.4rem; color: var(--gold-bright); letter-spacing: 0.3em; text-align: center; margin-bottom: 6px; font-weight: 700;">
+      ランキング登録
+    </div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.3em; opacity: 0.7; text-align: center; margin-bottom: 20px;">
+      RANKING REGISTRATION
+    </div>
+    <div id="rankingRegisterSummary" style="background: rgba(201, 169, 97, 0.08); border: 1px solid rgba(201, 169, 97, 0.3); border-radius: 6px; padding: 14px; margin-bottom: 20px; text-align: center; color: var(--bg-card);"></div>
+    <div style="text-align: left; margin-bottom: 16px;">
+      <div style="font-size: 0.75rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 6px;">イニシャル（A.B 形式・英大文字）</div>
+      <input type="text" id="rankingInitialsInput" maxlength="3" placeholder="A.B" class="name-input" style="text-align: center; font-size: 1.4rem; letter-spacing: 0.3em; font-family: 'JetBrains Mono', monospace;" oninput="onInitialsInput(event)">
+      <div id="rankingInitialsError" style="font-size: 0.75rem; color: var(--vermilion); margin-top: 6px; min-height: 18px;"></div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <button class="primary" id="rankingRegisterBtn" style="padding: 12px; font-size: 0.95rem; letter-spacing: 0.2em;">登録する</button>
+      <button onclick="closeRankingRegisterDialog()" style="font-size: 0.85rem;">登録しない</button>
+    </div>
+  </div>
+</div>
+
+<!-- ランキング画面 -->
+<div class="modal-overlay" id="rankingScreen" style="background: var(--bg-deep);">
+  <div style="max-width: 720px; width: 95%; max-height: 90vh; overflow-y: auto;">
+    <div style="font-family: 'Shippori Mincho', serif; font-size: 2rem; color: var(--gold-bright); letter-spacing: 0.3em; text-align: center; margin-bottom: 6px; font-weight: 700;">
+      ランキング
+    </div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--gold); letter-spacing: 0.3em; opacity: 0.7; text-align: center; margin-bottom: 24px;">
+      LEADERBOARD · TOP 10
+    </div>
+    
+    <!-- 難度タブ -->
+    <div class="ranking-tabs">
+      <button class="ranking-tab active" data-diff="strong" onclick="switchRankingTab('strong')">強</button>
+      <button class="ranking-tab" data-diff="oni" onclick="switchRankingTab('oni')">鬼</button>
+    </div>
+    
+    <!-- ハイスコア & 平均を並べて表示 -->
+    <div class="ranking-columns">
+      <div class="ranking-column">
+        <div class="ranking-column-title">
+          1試合ハイスコア
+          <span class="ranking-column-sub">（ラウンド最高得点）</span>
+        </div>
+        <div id="rankingListScore"></div>
+      </div>
+      <div class="ranking-column">
+        <div class="ranking-column-title">
+          勝利時平均スコア
+          <span class="ranking-column-sub">（合計÷ラウンド数）</span>
+        </div>
+        <div id="rankingListAverage"></div>
+      </div>
+    </div>
+    
+    <div style="text-align: center; margin-top: 24px;">
+      <button onclick="closeRankingScreen()" style="font-size: 0.85rem;">タイトルに戻る</button>
+    </div>
+  </div>
+</div>
+
 <!-- スタート画面 -->
 <div class="modal-overlay active" id="startScreen" style="background: var(--bg-deep);">
   <div style="text-align: center; max-width: 500px; width: 90%;">
@@ -1480,6 +1637,9 @@ body.tut-active .action-bar > * {
       </button>
       <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em; background: var(--bg-mid); color: var(--vermilion); border-color: var(--vermilion);" onclick="toggleHelp()">
         遊び方（チュートリアル）
+      </button>
+      <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em; background: var(--bg-mid); color: var(--gold-bright); border-color: var(--gold-bright);" onclick="openRankingScreen('strong')">
+        ランキング
       </button>
     </div>
 
@@ -2055,6 +2215,10 @@ let totalRounds = 3;
 let currentRound = 1;
 let cumulativeScores = [0, 0];
 
+// ランキング用：プレイヤー(=自分)が各ラウンドで獲得した得点の履歴
+// 例: [10, 0, 17, 0, 0] = ラウンド2で10点、ラウンド4で17点
+let myRoundScores = [];
+
 // 上級者モード（役の元素記号を伏せる、覚え推奨）
 let expertMode = false;
 
@@ -2174,6 +2338,242 @@ window.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('touchstart', tryPlay, { once: false });
   }
 });
+
+// ============================================================
+// ランキング機能
+// ============================================================
+// Firebase Realtime Database のパス構造:
+//   rankings/
+//     strong/  ← CPU強モードでの勝利記録
+//       <pushId>: { initials, score, average, maxRound, totalScore, rounds, ts }
+//     oni/     ← CPU鬼モードでの勝利記録
+//       <pushId>: { initials, score, average, maxRound, totalScore, rounds, ts }
+//
+// 「ハイスコア」と「平均」は同じレコード内の別フィールド。
+// 表示時にそれぞれソートして使う。
+
+const RANKING_TOP_N = 10;
+const INITIALS_KEY = 'metalKoikoiInitials';
+
+// CPU勝利時のランキング登録ダイアログ判定
+function maybeOfferRankingRegistration() {
+  // CPU戦かつ強or鬼以外は対象外
+  if (gameMode !== 'cpu') return;
+  if (cpuDifficulty !== 'strong' && cpuDifficulty !== 'oni') return;
+  // 自分が勝っているか（同点・負けは登録しない）
+  const myIdx = myPlayerIndex;
+  const oppIdx = 1 - myIdx;
+  if (cumulativeScores[myIdx] <= cumulativeScores[oppIdx]) return;
+  
+  // 表示する指標を計算
+  const totalScore = cumulativeScores[myIdx];
+  const rounds = totalRounds;
+  const average = totalScore / rounds;
+  // ラウンド内最高得点
+  const maxRound = myRoundScores.length > 0 ? Math.max(...myRoundScores, 0) : 0;
+  
+  // 既存のendModalの上に重ねるので、少し遅延させる
+  setTimeout(() => {
+    showRankingRegisterDialog({
+      difficulty: cpuDifficulty,
+      score: maxRound,        // 1ゲームハイスコア = ラウンド内最高得点
+      average: average,        // 勝利時平均 = 総得点 / ラウンド数
+      maxRound: maxRound,
+      totalScore: totalScore,
+      rounds: rounds
+    });
+  }, 600);
+}
+
+// ランキング登録ダイアログ表示
+function showRankingRegisterDialog(record) {
+  const overlay = document.getElementById('rankingRegisterOverlay');
+  if (!overlay) return;
+  
+  // 直近使用イニシャルを復元
+  const lastInitials = (() => {
+    try { return localStorage.getItem(INITIALS_KEY) || ''; } catch (e) { return ''; }
+  })();
+  const input = document.getElementById('rankingInitialsInput');
+  if (input) input.value = lastInitials;
+  
+  // 内訳表示
+  const summary = document.getElementById('rankingRegisterSummary');
+  const diffLabel = record.difficulty === 'oni' ? '鬼' : '強';
+  if (summary) {
+    summary.innerHTML = 
+      `<div style="margin-bottom: 8px;">難度：<span style="color: var(--gold-bright); font-weight: 700;">${diffLabel}</span> で勝利</div>` +
+      `<div style="font-size: 0.85rem; line-height: 1.7;">` +
+      `1試合ハイスコア（ラウンド最高）: <span style="color: var(--gold-bright); font-weight: 700;">${record.score}</span> 点<br>` +
+      `勝利時平均: <span style="color: var(--gold-bright); font-weight: 700;">${record.average.toFixed(2)}</span> 点/ラウンド<br>` +
+      `<span style="opacity: 0.7;">（試合合計 ${record.totalScore}点 ÷ ${record.rounds}ラウンド）</span>` +
+      `</div>`;
+  }
+  
+  // エラーメッセージリセット
+  const err = document.getElementById('rankingInitialsError');
+  if (err) err.textContent = '';
+  
+  // 登録ボタンに record をバインド
+  const registerBtn = document.getElementById('rankingRegisterBtn');
+  if (registerBtn) {
+    registerBtn.onclick = () => submitRankingRecord(record);
+    registerBtn.disabled = false;
+    registerBtn.textContent = '登録する';
+  }
+  
+  overlay.classList.add('active');
+  if (input) input.focus();
+}
+
+function closeRankingRegisterDialog() {
+  document.getElementById('rankingRegisterOverlay').classList.remove('active');
+}
+
+// イニシャル入力バリデーション（A.B 形式：英大文字 + ピリオド + 英大文字）
+function validateInitials(raw) {
+  const s = (raw || '').trim().toUpperCase();
+  if (!/^[A-Z]\.[A-Z]$/.test(s)) {
+    return { ok: false, msg: '「A.B」のように 英大文字＋ピリオド＋英大文字 で入力してください' };
+  }
+  return { ok: true, value: s };
+}
+
+// 入力欄の変化に応じて自動整形（小文字→大文字）
+function onInitialsInput(e) {
+  const v = e.target.value.toUpperCase();
+  if (v !== e.target.value) e.target.value = v;
+}
+
+// ランキング登録実行
+async function submitRankingRecord(record) {
+  const input = document.getElementById('rankingInitialsInput');
+  const err = document.getElementById('rankingInitialsError');
+  const btn = document.getElementById('rankingRegisterBtn');
+  if (!input) return;
+  
+  const v = validateInitials(input.value);
+  if (!v.ok) {
+    if (err) err.textContent = v.msg;
+    return;
+  }
+  
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '登録中...';
+  }
+  
+  // 直近イニシャルを保存
+  try { localStorage.setItem(INITIALS_KEY, v.value); } catch (e) {}
+  
+  try {
+    const ref = fbDb.ref('rankings/' + record.difficulty);
+    await ref.push({
+      initials: v.value,
+      score: record.score,         // ラウンド内最高得点
+      average: record.average,     // 平均（小数）
+      maxRound: record.maxRound,
+      totalScore: record.totalScore,
+      rounds: record.rounds,
+      ts: firebase.database.ServerValue.TIMESTAMP
+    });
+    if (btn) btn.textContent = '登録完了';
+    setTimeout(() => {
+      closeRankingRegisterDialog();
+      // 登録後にランキング画面へ
+      openRankingScreen(record.difficulty);
+    }, 700);
+  } catch (e) {
+    console.error('ランキング登録失敗', e);
+    if (err) err.textContent = '登録に失敗しました（ネットワーク状態を確認してください）';
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '登録する';
+    }
+  }
+}
+
+// ランキング画面を開く
+let currentRankingDifficulty = 'strong';
+
+function openRankingScreen(difficulty) {
+  currentRankingDifficulty = difficulty || 'strong';
+  document.getElementById('startScreen').classList.remove('active');
+  document.getElementById('rankingScreen').classList.add('active');
+  pauseBgm();
+  switchRankingTab(currentRankingDifficulty);
+}
+
+function closeRankingScreen() {
+  document.getElementById('rankingScreen').classList.remove('active');
+  document.getElementById('startScreen').classList.add('active');
+  resumeBgm();
+}
+
+function switchRankingTab(difficulty) {
+  currentRankingDifficulty = difficulty;
+  // タブのactive表示
+  document.querySelectorAll('.ranking-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.diff === difficulty);
+  });
+  loadAndRenderRanking(difficulty);
+}
+
+async function loadAndRenderRanking(difficulty) {
+  const scoreList = document.getElementById('rankingListScore');
+  const avgList = document.getElementById('rankingListAverage');
+  if (scoreList) scoreList.innerHTML = '<div style="text-align:center; padding: 20px; opacity: 0.7;">読み込み中...</div>';
+  if (avgList) avgList.innerHTML = '<div style="text-align:center; padding: 20px; opacity: 0.7;">読み込み中...</div>';
+  
+  try {
+    const snap = await fbDb.ref('rankings/' + difficulty).once('value');
+    const data = snap.val() || {};
+    const records = Object.values(data);
+    
+    // ハイスコア順
+    const byScore = records.slice().sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, RANKING_TOP_N);
+    // 平均順
+    const byAverage = records.slice().sort((a, b) => (b.average || 0) - (a.average || 0)).slice(0, RANKING_TOP_N);
+    
+    if (scoreList) scoreList.innerHTML = renderRankingList(byScore, 'score');
+    if (avgList) avgList.innerHTML = renderRankingList(byAverage, 'average');
+  } catch (e) {
+    console.error('ランキング読み込み失敗', e);
+    const errMsg = '<div style="text-align:center; padding: 20px; color: var(--vermilion);">読み込みに失敗しました</div>';
+    if (scoreList) scoreList.innerHTML = errMsg;
+    if (avgList) avgList.innerHTML = errMsg;
+  }
+}
+
+function renderRankingList(records, kind) {
+  if (records.length === 0) {
+    return '<div style="text-align:center; padding: 24px; opacity: 0.6; font-size: 0.85rem;">まだ記録がありません</div>';
+  }
+  let html = '<div class="ranking-list-rows">';
+  records.forEach((r, i) => {
+    const rank = i + 1;
+    const value = (kind === 'average')
+      ? (r.average || 0).toFixed(2) + ' 点/R'
+      : (r.score || 0) + ' 点';
+    const rankColor = rank === 1 ? 'var(--gold-bright)' :
+                      rank === 2 ? '#c0c0c0' :
+                      rank === 3 ? '#cd7f32' : 'var(--gold)';
+    html += 
+      '<div class="ranking-row">' +
+      `<span class="ranking-rank" style="color: ${rankColor};">${rank}</span>` +
+      `<span class="ranking-initials">${escapeHtml(r.initials || '?.?')}</span>` +
+      `<span class="ranking-value">${value}</span>` +
+      '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
 
 // 2人対戦設定画面を開く
 function openPvpSetup() {
@@ -2666,6 +3066,7 @@ function startOnlineGame(role, hostName, guestName) {
   playerNames = [hostName, guestName];
   currentRound = 1;
   cumulativeScores = [0, 0];
+  myRoundScores = [];
   lastRoundWinner = null;
   
   // すべてのメニュー画面を閉じる
@@ -2710,6 +3111,7 @@ function startGame(mode) {
   myPlayerIndex = 0;
   currentRound = 1;
   cumulativeScores = [0, 0];
+  myRoundScores = [];
   lastRoundWinner = null;
   
   // メニュー系画面をすべて閉じる
@@ -2814,6 +3216,7 @@ function startRematchListener() {
         };
         currentRound = 1;
         cumulativeScores = [0, 0];
+        myRoundScores = [];
         lastRoundWinner = null;
         log('ホストの準備を待っています...');
         render();
@@ -2897,6 +3300,7 @@ async function startRematchGame() {
   
   currentRound = 1;
   cumulativeScores = [0, 0];
+  myRoundScores = [];
   lastRoundWinner = null;
   
   // rematch ノードを完全削除（次回再戦時に備える）
@@ -2971,6 +3375,8 @@ function backToMenu() {
   document.getElementById('roomWaitScreen').classList.remove('active');
   document.getElementById('roomJoinScreen').classList.remove('active');
   document.getElementById('rematchSetupScreen').classList.remove('active');
+  document.getElementById('rankingScreen').classList.remove('active');
+  document.getElementById('rankingRegisterOverlay').classList.remove('active');
   document.getElementById('startScreen').classList.add('active');
   // メニューに戻ったらBGMを再開（タイトル画面で流す）
   resumeBgm();
@@ -4234,6 +4640,10 @@ function finishCurrentRound(cause, agariInfo) {
   cumulativeScores[0] += state.players[0].score;
   cumulativeScores[1] += state.players[1].score;
   
+  // ランキング用：自分のラウンド得点を履歴に積む
+  // CPU戦は myPlayerIndex=0、PvPは0、オンラインは0/1
+  myRoundScores.push(state.players[myPlayerIndex].score || 0);
+  
   // 最終ラウンドかチェック
   const isFinalRound = currentRound >= totalRounds;
   
@@ -4362,6 +4772,9 @@ function showRoundEndScreen(title, subtitle, isFinalRound) {
         backToMenu();
       };
       modal.querySelector('.modal').appendChild(btn);
+      
+      // ランキング登録判定：CPU強・鬼で勝利したらダイアログ表示
+      maybeOfferRankingRegistration();
     }
   } else {
     const btn = document.createElement('button');
