@@ -1279,14 +1279,6 @@ body.tut-active .action-bar > * {
   /* render側で動的に再構築されるので、CSSでは触らない。JSで制御 */
 }
 
-/* チュートリアル中は背景スクロールを固定 */
-body.tut-active {
-  overflow: hidden !important;
-  position: fixed !important;
-  width: 100%;
-  height: 100vh;
-}
-
 @media (max-width: 600px) {
   .tut-bubble {
     max-width: calc(100vw - 32px);
@@ -6267,6 +6259,28 @@ const tutorial = {
   observerActive: false,
   modalForceTarget: null,  // placeModal内で強制したい役ID
   reapplyTimer: null,
+  _scrollHandler: null,
+  _resizeHandler: null,
+
+  // 現在のステップに応じてハイライトとふきだしを再配置（スクロール時用）
+  reposition() {
+    const step = TUTORIAL_STEPS[this.currentStepIndex];
+    if (!step) return;
+    // ハイライトをtransitionなしで即時追従
+    const spot = document.getElementById('tutSpotlight');
+    const bubble = document.getElementById('tutBubble');
+    const prevSpotTransition = spot.style.transition;
+    const prevBubbleTransition = bubble.style.transition;
+    spot.style.transition = 'none';
+    bubble.style.transition = 'none';
+    this.updateHighlight(this.resolveHighlight(step.highlight));
+    this.positionBubble(step.bubblePosition);
+    // 次フレームでtransition戻す
+    requestAnimationFrame(() => {
+      spot.style.transition = prevSpotTransition;
+      bubble.style.transition = prevBubbleTransition;
+    });
+  },
 
   // ----------------- 起動・終了 -----------------
   start() {
@@ -6289,6 +6303,12 @@ const tutorial = {
     // 既存のCPUターンスケジュールを抑制するフラグ
     state = state || null;
 
+    // スクロール/リサイズ時に追従させる
+    this._scrollHandler = () => this.reposition();
+    this._resizeHandler = () => this.reposition();
+    window.addEventListener('scroll', this._scrollHandler, { passive: true });
+    window.addEventListener('resize', this._resizeHandler);
+
     this.renderStep();
   },
 
@@ -6306,6 +6326,16 @@ const tutorial = {
     document.getElementById('tutOverlay').classList.remove('active');
     document.getElementById('tutProgress').classList.remove('active');
     document.getElementById('tutSkip').classList.remove('active');
+
+    // スクロール/リサイズリスナーを解除
+    if (this._scrollHandler) {
+      window.removeEventListener('scroll', this._scrollHandler);
+      this._scrollHandler = null;
+    }
+    if (this._resizeHandler) {
+      window.removeEventListener('resize', this._resizeHandler);
+      this._resizeHandler = null;
+    }
 
     // 強制操作の解除
     this.clearForceTap();
