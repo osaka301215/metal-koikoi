@@ -4821,7 +4821,47 @@ function cpuOniSimulateRound(simState, startingIdx, strategyP0, strategyP1) {
   };
 }
 
-// 「鬼」モンテカルロ：候補アクションを評価
+// シミュレーション結果（このラウンドの両者得点）を、
+// 「累計スコア＋ラウンド進行」を加味した評価値に変換する
+// cpuIdx: CPU側プレイヤーインデックス
+// roundResult: { p0Score, p1Score }
+// 戻り値: 評価値（正なら自分有利、負なら不利）
+function cpuOniRoundOutcomeValue(cpuIdx, roundResult) {
+  const oppIdx = 1 - cpuIdx;
+  const myRoundScore = (cpuIdx === 0) ? roundResult.p0Score : roundResult.p1Score;
+  const oppRoundScore = (cpuIdx === 0) ? roundResult.p1Score : roundResult.p0Score;
+  
+  // このラウンドの得点差（基本評価）
+  const roundDiff = myRoundScore - oppRoundScore;
+  
+  // 仮想的な「ラウンド終了後の累計」
+  const myFinalCumulative = (cumulativeScores[cpuIdx] || 0) + myRoundScore;
+  const oppFinalCumulative = (cumulativeScores[oppIdx] || 0) + oppRoundScore;
+  
+  // 最終ラウンドかどうか
+  const isFinalRound = currentRound >= totalRounds;
+  
+  if (isFinalRound) {
+    // 最終ラウンド：累計の勝敗が確定する → 勝敗に応じてボーナス/ペナルティ
+    if (myFinalCumulative > oppFinalCumulative) {
+      // 累計で勝つ → ボーナス +30
+      return roundDiff + 30;
+    } else if (myFinalCumulative < oppFinalCumulative) {
+      // 累計で負ける → ペナルティ -30
+      return roundDiff - 30;
+    } else {
+      // 引き分け → 中立
+      return roundDiff;
+    }
+  } else {
+    // 中間ラウンド：このラウンドの得点差をそのまま使用
+    // ただし「累計差」も多少加味（リードを広げたい/縮めたい意識）
+    const cumulativeDiff = myFinalCumulative - oppFinalCumulative;
+    return roundDiff + cumulativeDiff * 0.1; // 累計差を1割反映
+  }
+}
+
+
 // candidate: { type: 'hand_card', card } | { type: 'koikoi_decision', willAgari: bool }
 // 戻り値: 平均得点差（自分得点 - 相手得点）
 function cpuOniEvaluateAction(cpu, oppIdx, candidate, trials) {
@@ -4912,7 +4952,11 @@ function cpuOniEvaluateAction(cpu, oppIdx, candidate, trials) {
           let points = calculateRolePoints(me.completedRoles);
           if (me.koikoiCount > 0) points += me.koikoiCount * KOIKOI_BONUS_PER_COUNT;
           me.score = points;
-          totalDiff += me.score - sim.players[oppIdx].score;
+          // ラウンド即時上がり
+          totalDiff += cpuOniRoundOutcomeValue(cpuIdx, {
+            p0Score: sim.players[0].score,
+            p1Score: sim.players[1].score,
+          });
           continue;
         } else {
           // 5点未満は強制こいこい
@@ -4932,26 +4976,23 @@ function cpuOniEvaluateAction(cpu, oppIdx, candidate, trials) {
       
       // 相手のターンに移る、以降ラウンド最後までシミュレート
       const result = cpuOniSimulateRound(sim, oppIdx, 'normal', 'normal');
-      totalDiff += result.p0Score - result.p1Score;
-      // 注：cpu が p0 か p1 かで符号を調整
-      if (cpuIdx === 1) totalDiff -= 2 * (result.p0Score - result.p1Score); // 反転して再加算
-      // 上の行は紛らわしいので書き直し ↓
+      totalDiff += cpuOniRoundOutcomeValue(cpuIdx, result);
     } else if (candidate.type === 'koikoi_decision') {
       // こいこい判断のシミュレーション
       const me = sim.players[cpuIdx];
-      // candidate 通りに上がりorこいこいを実行
       if (candidate.willAgari) {
-        // 既に成立した役は newRoles として呼び出し元で確定済みのはず
-        // ここでは「上がる」と仮定して即時得点を返す
+        // 上がり：即時得点確定
         let points = calculateRolePoints(me.completedRoles);
         if (me.koikoiCount > 0) points += me.koikoiCount * KOIKOI_BONUS_PER_COUNT;
-        totalDiff += points - sim.players[oppIdx].score;
+        me.score = points;
+        totalDiff += cpuOniRoundOutcomeValue(cpuIdx, {
+          p0Score: sim.players[0].score,
+          p1Score: sim.players[1].score,
+        });
       } else {
         // こいこい：以降のシミュレーション
         const result = cpuOniSimulateRound(sim, oppIdx, 'normal', 'normal');
-        const myFinal = (cpuIdx === 0) ? result.p0Score : result.p1Score;
-        const oppFinal = (cpuIdx === 0) ? result.p1Score : result.p0Score;
-        totalDiff += myFinal - oppFinal;
+        totalDiff += cpuOniRoundOutcomeValue(cpuIdx, result);
       }
     }
   }
@@ -5026,11 +5067,40 @@ function cpuOniDecideKoikoi(cpu, opp, totalPoints, newRoles) {
   const koikoiAvg = cpuOniEvaluateAction(cpu, oppIdx, koikoiCandidate, ONI_MC_TRIALS);
   
   // こいこいの方は「上がりボーナス」も加味（rounds が進めば +3点/koikoiCount）
-  const koikoiAvgWithBonus = koikoiAvg + KOIKOI_BONUS_PER_COUNT * 0.5; // 期待値補正
+  // ただし最終ラウンドで既に累計勝利見込みがある場合は、こいこい欲張りを抑える
+  const isFinalRound = currentRound >= totalRounds;
+  const myCumulative = (cumulativeScores[cpuIdx] || 0);
+  const oppCumulative = (cumulativeScores[oppIdx] || 0);
   
-  log(`${playerNames[1]}（鬼の思考）: 上がり=${agariAvg.toFixed(1)}, こいこい=${koikoiAvgWithBonus.toFixed(1)} → ${koikoiAvgWithBonus > agariAvg ? 'こいこい' : '上がり'}`);
+  let koikoiAvgWithBonus;
+  if (isFinalRound && agariAvg >= 25) {
+    // 最終ラウンドで上がれば確実勝利が見える状況（agariAvg ≥ 25 = 勝利ボーナス含む）
+    // → こいこい欲張りボーナスを切る、むしろ控えめに
+    koikoiAvgWithBonus = koikoiAvg;
+  } else {
+    koikoiAvgWithBonus = koikoiAvg + KOIKOI_BONUS_PER_COUNT * 0.5;
+  }
   
-  return koikoiAvgWithBonus <= agariAvg; // willAgari
+  // 判定：こいこいの方が「明確に」高い場合のみこいこい
+  // 同等〜小差なら確定の上がりを選ぶ（リスク回避）
+  // 最終ラウンドで勝利確定状況ではマージンを大きくする
+  let decisionMargin;
+  if (isFinalRound && agariAvg >= 25) {
+    decisionMargin = 5; // 確実勝利できるなら、+5以上の優位がない限り上がる
+  } else {
+    decisionMargin = 1; // 通常時は微妙な差なら上がる（手堅さ）
+  }
+  const willAgari = (koikoiAvgWithBonus < agariAvg + decisionMargin);
+  
+  // ログ出力：状況ごとに分かりやすく
+  const myCum = cumulativeScores[cpuIdx] || 0;
+  const oppCum = cumulativeScores[oppIdx] || 0;
+  const cumDiff = myCum - oppCum;
+  const roundLabel = isFinalRound ? '最終R' : `R${currentRound}/${totalRounds}`;
+  const cumLabel = `累計${myCum}vs${oppCum}(${cumDiff >= 0 ? '+' : ''}${cumDiff})`;
+  log(`${playerNames[1]}（鬼の思考・${roundLabel}・${cumLabel}）: 上がり=${agariAvg.toFixed(1)}, こいこい=${koikoiAvgWithBonus.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`);
+  
+  return willAgari;
 }
 
 // ============================================================
