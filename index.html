@@ -5120,7 +5120,9 @@ function cpuOniPickHandCard(cpu, hand, field) {
     }
   }
   
-  log(`${playerNames[1]}（強の思考）: ${evaluations.map(e => `${e.symbol}=${e.avg.toFixed(1)}`).join(', ')} → ${bestCard.symbol}`);
+  const _msg = `${playerNames[1]}（強の思考）: ${evaluations.map(e => `${e.symbol}=${e.avg.toFixed(1)}`).join(', ')} → ${bestCard.symbol}`;
+  log(_msg);
+  console.log('[CPU思考]', _msg);
   
   return bestCard;
 }
@@ -5174,7 +5176,9 @@ function cpuOniDecideKoikoi(cpu, opp, totalPoints, newRoles) {
   const cumDiff = myCum - oppCum;
   const roundLabel = isFinalRound ? '最終R' : `R${currentRound}/${totalRounds}`;
   const cumLabel = `累計${myCum}vs${oppCum}(${cumDiff >= 0 ? '+' : ''}${cumDiff})`;
-  log(`${playerNames[1]}（強の思考・${roundLabel}・${cumLabel}）: 上がり=${agariAvg.toFixed(1)}, こいこい=${koikoiAvgWithBonus.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`);
+  const _msg2 = `${playerNames[1]}（強の思考・${roundLabel}・${cumLabel}）: 上がり=${agariAvg.toFixed(1)}, こいこい=${koikoiAvgWithBonus.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`;
+  log(_msg2);
+  console.log('[CPU思考]', _msg2);
   
   return willAgari;
 }
@@ -5475,7 +5479,9 @@ function cpuCheckRoles() {
       willAgari = baseDecisionAgari;
     }
     
-    log(`${playerNames[1]}（鬼の思考）: 期待追加点≈${expectedBonus.toFixed(1)}, こいこい価値≈${koikoiGain.toFixed(1)}, リスク≈${riskFactor.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`);
+    const _msg3 = `${playerNames[1]}（鬼の思考）: 期待追加点≈${expectedBonus.toFixed(1)}, こいこい価値≈${koikoiGain.toFixed(1)}, リスク≈${riskFactor.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`;
+    log(_msg3);
+    console.log('[CPU思考]', _msg3);
   } else if (cpuDifficulty === 'normal') {
     // 「並」: 期待値ベース（雑な近似）
     const expectedBonus = cpuEstimateKoikoiExpectation(cpu);
