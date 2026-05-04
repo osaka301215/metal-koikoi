@@ -1053,6 +1053,240 @@ aside h2 {
   margin-top: 2px;
   opacity: 0.7;
 }
+
+/* ============================================================
+   チュートリアル
+   ============================================================ */
+.tut-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  display: none;
+}
+.tut-overlay.active {
+  display: block;
+  pointer-events: auto;
+}
+
+.tut-spotlight {
+  position: fixed;
+  border-radius: 4px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.78);
+  pointer-events: none;
+  transition: top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tut-spotlight.center {
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+}
+.tut-spotlight::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  animation: tutPulse 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+.tut-spotlight.center::before { display: none; }
+
+@keyframes tutPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 169, 97, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(201, 169, 97, 0); }
+}
+
+/* チュートリアル中、対象だけクリック可能にする */
+.tut-clickable {
+  position: relative;
+  z-index: 202 !important;
+  pointer-events: auto !important;
+}
+
+.tut-bubble {
+  position: fixed;
+  background: var(--bg-mid);
+  border: 2px solid var(--gold);
+  border-radius: 4px;
+  padding: 18px 20px 14px;
+  max-width: 340px;
+  width: calc(100% - 32px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 203;
+  font-family: 'Shippori Mincho', serif;
+  color: var(--bg-card);
+  transition: top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: auto;
+}
+
+.tut-bubble::before,
+.tut-bubble::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+  display: none;
+}
+.tut-bubble[data-arrow="bottom"]::before {
+  display: block;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid var(--gold);
+}
+.tut-bubble[data-arrow="bottom"]::after {
+  display: block;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid var(--bg-mid);
+}
+.tut-bubble[data-arrow="top"]::before {
+  display: block;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid var(--gold);
+}
+.tut-bubble[data-arrow="top"]::after {
+  display: block;
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 8px solid var(--bg-mid);
+}
+
+.tut-bubble-chapter {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--gold);
+  letter-spacing: 0.25em;
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+
+.tut-bubble-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gold-bright);
+  letter-spacing: 0.15em;
+  margin-bottom: 10px;
+  border-bottom: 1px solid rgba(201, 169, 97, 0.3);
+  padding-bottom: 6px;
+}
+
+.tut-bubble-message {
+  font-size: 0.85rem;
+  line-height: 1.7;
+  margin-bottom: 14px;
+  letter-spacing: 0.05em;
+}
+
+.tut-bubble-message strong {
+  color: var(--vermilion);
+  font-weight: 700;
+}
+
+.tut-bubble-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tut-btn {
+  background: var(--vermilion);
+  color: var(--bg-card);
+  border: 1px solid var(--vermilion);
+  padding: 7px 16px;
+  font-family: 'Shippori Mincho', serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+}
+.tut-btn:hover {
+  background: #d65a4d;
+  transform: translateY(-1px);
+}
+.tut-btn.secondary {
+  background: transparent;
+  color: var(--gold);
+  border-color: var(--gold);
+}
+.tut-btn.secondary:hover {
+  background: rgba(201, 169, 97, 0.15);
+}
+
+.tut-progress {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 204;
+  background: var(--bg-deep);
+  border: 1px solid var(--gold);
+  color: var(--gold-bright);
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  display: none;
+}
+.tut-progress.active { display: block; }
+
+.tut-skip {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 204;
+  background: var(--bg-deep);
+  border: 1px solid rgba(201, 169, 97, 0.4);
+  color: rgba(201, 169, 97, 0.7);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-family: 'Shippori Mincho', serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  display: none;
+}
+.tut-skip.active { display: block; }
+.tut-skip:hover {
+  color: var(--vermilion);
+  border-color: var(--vermilion);
+}
+
+/* チュートリアル中はFAB系・ヘッダボタンを抑制 */
+body.tut-active header,
+body.tut-active .action-bar > * {
+  /* render側で動的に再構築されるので、CSSでは触らない。JSで制御 */
+}
+
+@media (max-width: 600px) {
+  .tut-bubble {
+    max-width: calc(100vw - 32px);
+    padding: 14px 16px 12px;
+  }
+  .tut-bubble-title { font-size: 0.95rem; }
+  .tut-bubble-message { font-size: 0.8rem; line-height: 1.6; }
+}
 </style>
 
 <!-- Firebase SDK（v9 compat版） -->
@@ -1528,6 +1762,21 @@ aside h2 {
     </div>
   </aside>
 </div>
+
+<!-- ============================================================
+     チュートリアル オーバーレイ
+     ============================================================ -->
+<div class="tut-overlay" id="tutOverlay">
+  <div class="tut-spotlight center" id="tutSpotlight"></div>
+  <div class="tut-bubble" id="tutBubble" data-arrow="none" style="top: 50%; left: 50%; transform: translate(-50%, -50%);">
+    <div class="tut-bubble-chapter" id="tutBubbleChapter"></div>
+    <div class="tut-bubble-title" id="tutBubbleTitle"></div>
+    <div class="tut-bubble-message" id="tutBubbleMessage"></div>
+    <div class="tut-bubble-actions" id="tutBubbleActions"></div>
+  </div>
+</div>
+<div class="tut-progress" id="tutProgress">1 / 11</div>
+<button class="tut-skip" id="tutSkip" onclick="tutorial.requestEnd()">チュートリアルをやめる</button>
 
 <script>
 // ============================================================
@@ -5974,40 +6223,12 @@ function toggleRoleList() {
 }
 
 function toggleHelp() {
-  alert(
-`【遊び方 v2 スロット版】
-
-1. 手札から札を1枚クリックして選択。
-2. 場に同じ価数の札があれば、光る札を選んで取る。
-   ・なければ「場に置く」ボタンで流す。
-3. 山札から1枚自動でめくられる。同様に処理。
-4. 札を取った瞬間、その札をどの役のどのマスに入れるか
-   選ぶモーダルが開く。
-   ・各札について「○○の役」または「保留」を選択。
-   ・保留中の札も同時に役に配置できる。
-   ・1ターンで役に置けるのは合計2枚まで。
-     （新規取得＋保留からの配置を合算）
-     残りは強制的に保留行きになる。
-   ・※先攻の最初のターンだけは1枚まで（先攻有利の緩和）。
-5. 役のスロットが全マス埋まったら成立！
-   ・上がるかこいこいか選ぶ（7点以上で上がり可、弱CPU戦のみ5点）。
-   ・こいこい1回ごとに上がり時+3点ボーナス。
-
-【炎色反応の特例】
-6マスのスロットで、3マス埋まると基本5点で成立。
-こいこい中に追加で配置でき、6マス全部埋まれば
-完全10点に格上げできる。
-
-【保留札（ペンディング）】
-取った札の配置先を決めかねたら保留に。
-ただし保留札を役に動かせるのは「次に新しい札を取った時」
-だけ。何もしないターンでは保留札は凍結。
-溜め込みすぎると相手に先に上がられる。
-
-【スロットの不可逆性】
-一度どの役のマスに入れた札は、別の役には移せない。
-1枚の札は1つのマスにのみ使える。`
-  );
+  // ゲーム進行中ならチュートリアル開始前に確認
+  if (state && !state.gameOver && state.phase !== 'ceremony' &&
+      (state.players[0].hand.length > 0 || state.players[1].hand.length > 0)) {
+    if (!confirm('チュートリアルを開始すると、現在のゲームは中断されます。よろしいですか？')) return;
+  }
+  tutorial.start();
 }
 
 // 起動時はメニュー画面を表示するのみ（newGameはメニューから呼ばれる）
@@ -6023,6 +6244,781 @@ state = {
   pendingCaptures: [],
   gameOver: false,
 };
+
+// ============================================================
+// チュートリアル
+// ============================================================
+const tutorial = {
+  active: false,
+  currentStepIndex: -1,
+  observerActive: false,
+  modalForceTarget: null,  // placeModal内で強制したい役ID
+  reapplyTimer: null,
+
+  // ----------------- 起動・終了 -----------------
+  start() {
+    // 既存のモーダルを閉じる
+    ['placeModal', 'roleModal', 'endModal', 'ceremonyOverlay',
+     'startScreen', 'pvpSetupScreen', 'cpuSetupScreen', 'onlineSetupScreen',
+     'onlineRoundSelectScreen', 'roomWaitScreen', 'roomJoinScreen',
+     'rematchSetupScreen'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('active');
+    });
+
+    this.active = true;
+    this.currentStepIndex = 0;
+    document.body.classList.add('tut-active');
+    document.getElementById('tutOverlay').classList.add('active');
+    document.getElementById('tutProgress').classList.add('active');
+    document.getElementById('tutSkip').classList.add('active');
+
+    // 既存のCPUターンスケジュールを抑制するフラグ
+    state = state || null;
+
+    this.renderStep();
+  },
+
+  requestEnd() {
+    if (confirm('チュートリアルをやめますか?')) {
+      this.end(true);
+    }
+  },
+
+  end(returnToMenu) {
+    this.active = false;
+    this.currentStepIndex = -1;
+    this.modalForceTarget = null;
+    document.body.classList.remove('tut-active');
+    document.getElementById('tutOverlay').classList.remove('active');
+    document.getElementById('tutProgress').classList.remove('active');
+    document.getElementById('tutSkip').classList.remove('active');
+
+    // 強制操作の解除
+    this.clearForceTap();
+
+    // 全モーダルを閉じる
+    ['placeModal', 'roleModal'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('active');
+    });
+
+    // ゲーム状態をクリア（メニューに戻る）
+    state = {
+      deck: [], field: [],
+      players: [newPlayer(), newPlayer()],
+      currentPlayer: 0, selectedHandCard: null, phase: 'play_hand',
+      drawnCard: null, pendingCaptures: [], gameOver: false,
+    };
+
+    if (returnToMenu) {
+      const start = document.getElementById('startScreen');
+      if (start) start.classList.add('active');
+    }
+  },
+
+  // ----------------- ステップ進行 -----------------
+  next() {
+    if (this.currentStepIndex >= TUTORIAL_STEPS.length - 1) {
+      this.end(true);
+      return;
+    }
+    this.currentStepIndex++;
+    this.renderStep();
+  },
+
+  jumpTo(index) {
+    if (!this.active) this.start();
+    this.currentStepIndex = index;
+    this.renderStep();
+  },
+
+  renderStep() {
+    const step = TUTORIAL_STEPS[this.currentStepIndex];
+    if (!step) return;
+
+    // 進捗表示
+    document.getElementById('tutProgress').textContent =
+      `${this.currentStepIndex + 1} / ${TUTORIAL_STEPS.length}`;
+
+    // 既存の強制操作を解除
+    this.clearForceTap();
+    this.modalForceTarget = null;
+
+    // 盤面を仕込む
+    if (step.setup) {
+      step.setup();
+    }
+    render();
+    renderRoleList();
+
+    // ふきだし更新（レイアウト確定を待つ）
+    setTimeout(() => {
+      this.applyStep(step);
+    }, 80);
+  },
+
+  applyStep(step) {
+    // ふきだし
+    document.getElementById('tutBubbleChapter').textContent = step.chapter || '';
+    document.getElementById('tutBubbleTitle').textContent = step.title || '';
+    document.getElementById('tutBubbleMessage').innerHTML = step.message || '';
+
+    // アクションボタン
+    const actions = document.getElementById('tutBubbleActions');
+    actions.innerHTML = '';
+    if (step.advance && step.advance.type === 'next-button') {
+      const btn = document.createElement('button');
+      btn.className = 'tut-btn';
+      btn.textContent = step.advance.label || '次へ';
+      btn.onclick = () => {
+        if (step.onAdvance) step.onAdvance();
+        this.next();
+      };
+      actions.appendChild(btn);
+    }
+    if (step.advance && step.advance.type === 'final-button') {
+      step.advance.buttons.forEach(b => {
+        const btn = document.createElement('button');
+        btn.className = 'tut-btn' + (b.secondary ? ' secondary' : '');
+        btn.textContent = b.label;
+        btn.onclick = () => {
+          this.end(false);
+          if (b.action) b.action();
+        };
+        actions.appendChild(btn);
+      });
+    }
+
+    // ハイライトとふきだし配置
+    this.updateHighlight(step.highlight);
+    this.positionBubble(step.bubblePosition);
+
+    // 強制タップ
+    if (step.advance && step.advance.type === 'forced-tap') {
+      this.applyForceTap(step.advance.target, () => {
+        if (step.onAdvance) step.onAdvance();
+        // タップ後、ステップによってはアニメ待ち
+        const delay = step.advance.delay || 100;
+        setTimeout(() => this.next(), delay);
+      });
+    }
+
+    // 強制配置（モーダル系）
+    if (step.advance && step.advance.type === 'forced-modal-role') {
+      this.modalForceTarget = step.advance.roleId;
+      // モーダルが既に開いていれば即適用
+      this.applyModalForce();
+    }
+  },
+
+  // ----------------- ハイライト/ふきだし -----------------
+  updateHighlight(highlight) {
+    const spot = document.getElementById('tutSpotlight');
+    if (!highlight) {
+      spot.classList.add('center');
+      spot.style.top = '50%';
+      spot.style.left = '50%';
+      spot.style.width = '0';
+      spot.style.height = '0';
+      return;
+    }
+    const target = (typeof highlight === 'string')
+      ? document.querySelector(highlight)
+      : highlight;
+    if (!target) {
+      spot.classList.add('center');
+      return;
+    }
+    spot.classList.remove('center');
+    const rect = target.getBoundingClientRect();
+    const padding = 4;
+    spot.style.top = `${rect.top - padding}px`;
+    spot.style.left = `${rect.left - padding}px`;
+    spot.style.width = `${rect.width + padding * 2}px`;
+    spot.style.height = `${rect.height + padding * 2}px`;
+  },
+
+  positionBubble(position) {
+    const bubble = document.getElementById('tutBubble');
+    bubble.style.transform = '';
+    bubble.dataset.arrow = 'none';
+
+    if (!position || position === 'center') {
+      bubble.style.top = '50%';
+      bubble.style.left = '50%';
+      bubble.style.transform = 'translate(-50%, -50%)';
+      return;
+    }
+
+    let target = null;
+    if (typeof position === 'string') {
+      target = document.querySelector(position);
+    }
+
+    if (!target) {
+      bubble.style.top = '50%';
+      bubble.style.left = '50%';
+      bubble.style.transform = 'translate(-50%, -50%)';
+      return;
+    }
+
+    const rect = target.getBoundingClientRect();
+    const bRect = bubble.getBoundingClientRect();
+    const margin = 16;
+
+    // 対象の上に置く / 上スペース不足なら下に
+    let top = rect.top - bRect.height - margin;
+    let arrow = 'bottom';
+    if (top < 60) {
+      top = rect.bottom + margin;
+      arrow = 'top';
+    }
+    let left = rect.left + rect.width / 2 - bRect.width / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - bRect.width - 8));
+
+    bubble.style.top = `${top}px`;
+    bubble.style.left = `${left}px`;
+    bubble.dataset.arrow = arrow;
+  },
+
+  // ----------------- 強制タップ制御 -----------------
+  // ハイライト対象だけをクリック可能にする。それ以外のクリックを抑制。
+  forceTapHandler: null,
+  forceTapTarget: null,
+
+  applyForceTap(targetSelector, onClickCallback) {
+    this.forceTapTarget = targetSelector;
+    const apply = () => {
+      // 全カード/ボタンをいったんpointer-events:none
+      document.querySelectorAll('.card').forEach(c => {
+        c.style.pointerEvents = 'none';
+      });
+
+      const target = document.querySelector(targetSelector);
+      if (!target) return;
+
+      target.classList.add('tut-clickable');
+      target.style.pointerEvents = 'auto';
+
+      // ターゲットのクリックイベントは既存のonclickがあるのでそれを保持しつつ、追加でnextを発火
+      const wrappedHandler = (e) => {
+        target.removeEventListener('click', wrappedHandler, true);
+        // 既存の処理を流す
+        if (onClickCallback) {
+          // 既存のonclickは要素のonclickに残っているので自然発火する
+          setTimeout(onClickCallback, 50);
+        }
+      };
+      target.addEventListener('click', wrappedHandler, true);
+      this.forceTapHandler = { el: target, fn: wrappedHandler };
+    };
+
+    apply();
+    // render後に再描画されることがあるので、定期的に再適用
+    this.startReapplyLoop();
+  },
+
+  startReapplyLoop() {
+    this.stopReapplyLoop();
+    this.reapplyTimer = setInterval(() => {
+      if (!this.active || !this.forceTapTarget) return;
+      const target = document.querySelector(this.forceTapTarget);
+      if (!target) return;
+      // ハイライト位置の追従
+      const step = TUTORIAL_STEPS[this.currentStepIndex];
+      if (step && step.highlight) {
+        this.updateHighlight(step.highlight);
+      }
+      // tut-clickableが消えていたら再付与
+      if (!target.classList.contains('tut-clickable')) {
+        target.classList.add('tut-clickable');
+        target.style.pointerEvents = 'auto';
+      }
+      // 他の要素のpointer-eventsもチェック
+      document.querySelectorAll('.card').forEach(c => {
+        if (c !== target && !c.classList.contains('tut-clickable')) {
+          c.style.pointerEvents = 'none';
+        }
+      });
+    }, 200);
+  },
+
+  stopReapplyLoop() {
+    if (this.reapplyTimer) {
+      clearInterval(this.reapplyTimer);
+      this.reapplyTimer = null;
+    }
+  },
+
+  clearForceTap() {
+    this.stopReapplyLoop();
+    this.forceTapTarget = null;
+    document.querySelectorAll('.card').forEach(c => {
+      c.style.pointerEvents = '';
+      c.classList.remove('tut-clickable');
+    });
+    document.querySelectorAll('.tut-clickable').forEach(el => {
+      el.classList.remove('tut-clickable');
+      el.style.pointerEvents = '';
+    });
+    if (this.forceTapHandler && this.forceTapHandler.el) {
+      this.forceTapHandler.el.removeEventListener('click', this.forceTapHandler.fn, true);
+    }
+    this.forceTapHandler = null;
+  },
+
+  // ----------------- placeModal内強制 -----------------
+  // placeModal が開かれた後、特定の役ボタン以外をdisable化する
+  applyModalForce() {
+    if (!this.modalForceTarget) return;
+    const modal = document.getElementById('placeModal');
+    if (!modal.classList.contains('active')) {
+      // モーダルが開くのを待つ
+      setTimeout(() => this.applyModalForce(), 200);
+      return;
+    }
+    const roleOptions = modal.querySelectorAll('.modal-role');
+    let foundTarget = null;
+    roleOptions.forEach(opt => {
+      const optRoleId = opt.dataset.tutRole || opt.getAttribute('data-role-id');
+      // モーダル内の役オプションを判定する仕組みは実装を読む必要あり。
+      // ここでは「テキストが特定の役名を含む」で判定（簡易）
+      const text = opt.textContent || '';
+      const role = ROLE_BY_ID[this.modalForceTarget];
+      if (role && text.includes(role.name)) {
+        foundTarget = opt;
+      } else {
+        opt.style.opacity = '0.3';
+        opt.style.pointerEvents = 'none';
+      }
+    });
+    if (foundTarget) {
+      foundTarget.classList.add('tut-clickable');
+      foundTarget.style.boxShadow = '0 0 0 2px var(--gold-bright)';
+    }
+    // 「保留」も無効化したい場合は追加処理
+  },
+};
+
+// ============================================================
+// チュートリアル: 仕込み盤面ヘルパー
+// ============================================================
+let _tutCardId = 100000;
+function makeTutCard(symbol) {
+  const info = ELEMENTS[symbol];
+  if (!info) throw new Error('Unknown element: ' + symbol);
+  return {
+    id: _tutCardId++,
+    symbol: symbol,
+    valences: [...info.valences],
+    atomicNumber: info.atomicNumber,
+  };
+}
+
+function makeTutPlayer(opts = {}) {
+  return {
+    hand: opts.hand || [],
+    pending: opts.pending || [],
+    slots: opts.slots || {},
+    score: opts.score || 0,
+    completedRoles: opts.completedRoles || [],
+    koikoi: opts.koikoi || false,
+    koikoiCount: opts.koikoiCount || 0,
+  };
+}
+
+function setTutState(opts) {
+  state = {
+    deck: opts.deck || [],
+    field: opts.field || [],
+    players: [
+      makeTutPlayer(opts.self || {}),
+      makeTutPlayer(opts.opponent || {}),
+    ],
+    currentPlayer: 0,
+    selectedHandCard: null,
+    phase: opts.phase || 'play_hand',
+    drawnCard: null,
+    pendingCaptures: [],
+    gameOver: false,
+    firstPlayerOfRound: 0,
+    firstPlayerHasPlayed: opts.firstPlayerHasPlayed !== undefined ? opts.firstPlayerHasPlayed : true,
+  };
+  myPlayerIndex = 0;
+  playerNames[0] = 'あなた';
+  playerNames[1] = '相手';
+}
+
+// ============================================================
+// チュートリアル: ステップ定義
+// ============================================================
+const TUTORIAL_STEPS = [
+
+  // ---------- Step 1: ようこそ ----------
+  {
+    chapter: '第0章 イントロ',
+    title: 'ようこそ',
+    message: '金属こいこいへようこそ。<br>これは化学版のこいこい。<strong>同じ価数の金属</strong>を集めて役を作ります。<br>8〜10分で基本を覚えましょう。',
+    setup: () => {
+      setTutState({ field: [], self: {}, opponent: {} });
+    },
+    bubblePosition: 'center',
+    advance: { type: 'next-button', label: 'はじめる' },
+  },
+
+  // ---------- Step 2: カードの見方 ----------
+  {
+    chapter: '第1章 マッチング',
+    title: 'カードの見方',
+    message: 'カードには<strong>元素記号</strong>と、その元素が取れる<strong>価数(かすう)</strong>が表示されます。<br>Fe は <strong>+2遷移</strong> と <strong>+3</strong> の2つの価数を持つので、両方のタグがあります。<br>価数は<strong>色で5種類</strong>に分かれていて、<strong>同じ色のタグ同士</strong>がマッチします。',
+    setup: () => {
+      setTutState({
+        self: { hand: [makeTutCard('Fe')] },
+      });
+    },
+    highlight: '#selfHand',
+    bubblePosition: '#selfHand',
+    advance: { type: 'next-button', label: 'なるほど' },
+  },
+
+  // ---------- Step 3: 価数でマッチング ----------
+  {
+    chapter: '第1章 マッチング',
+    title: '価数で取る',
+    message: '手札の Fe(<strong>+2遷移</strong> または <strong>+3</strong>)と<strong>同じ価数タグ</strong>を持つ場札を取れます。<br>まず手札の <strong>Fe</strong> をタップしてください。',
+    setup: () => {
+      setTutState({
+        self: { hand: [makeTutCard('Fe')] },
+        field: [makeTutCard('Cu'), makeTutCard('Na'), makeTutCard('Al')],
+        deck: [makeTutCard('Mg')],  // Step 4 用に Mg を仕込む(末尾がpopされる)
+      });
+    },
+    highlight: '#selfHand .card',
+    bubblePosition: '#selfHand',
+    advance: {
+      type: 'forced-tap',
+      target: '#selfHand .card',
+      delay: 200,
+    },
+    onAdvance: () => {
+      // 自動でStep 3bへ
+    },
+  },
+
+  // ---------- Step 3b: 場札を取る ----------
+  {
+    chapter: '第1章 マッチング',
+    title: '価数で取る',
+    message: '光った場札が取れる候補です。<br>Cu(<strong>+2遷移</strong>)と Al(<strong>+3</strong>)、どちらも Fe とマッチします。<br><strong>Cu をタップ</strong>して取りましょう。',
+    setup: () => {
+      // Step 3 の続き：手札Feを選択中の状態を再現
+      const fe = makeTutCard('Fe');
+      const cu = makeTutCard('Cu');
+      const na = makeTutCard('Na');
+      const al = makeTutCard('Al');
+      setTutState({
+        self: { hand: [fe] },
+        field: [cu, na, al],
+        deck: [makeTutCard('Mg')],
+        phase: 'match_hand',
+      });
+      state.selectedHandCard = fe;
+    },
+    highlight: () => {
+      // 場の Cu を探す
+      const cards = document.querySelectorAll('#fieldCards .card');
+      for (const c of cards) {
+        const sym = c.querySelector('.card-symbol');
+        if (sym && sym.textContent === 'Cu') return c;
+      }
+      return null;
+    },
+    bubblePosition: '#fieldCards',
+    advance: {
+      type: 'forced-tap',
+      get target() {
+        // 動的に Cu を探す
+        const cards = document.querySelectorAll('#fieldCards .card');
+        for (const c of cards) {
+          const sym = c.querySelector('.card-symbol');
+          if (sym && sym.textContent === 'Cu') {
+            // 一意なIDを付ける
+            if (!c.id) c.id = 'tut-target-cu';
+            return '#' + c.id;
+          }
+        }
+        return '#fieldCards .card';
+      },
+      delay: 600,
+    },
+  },
+
+  // ---------- Step 4: 山札めくり ----------
+  {
+    chapter: '第2章 1ターンの流れ',
+    title: '山札めくり',
+    message: '手札を出した後、自動で<strong>山札から1枚めくられます</strong>。<br>めくった札も場とマッチすれば取れます。<br>いま山札の Mg(<strong>+2典型</strong>)が場の Ca(<strong>+2典型</strong>)とマッチしますね。<strong>Ca をタップ</strong>して取りましょう。',
+    setup: () => {
+      // Step 3完了後の状態:Cu取得済み、山札からMgが出てる
+      const drawn = makeTutCard('Mg');
+      setTutState({
+        self: {
+          hand: [],
+          pending: [makeTutCard('Fe'), makeTutCard('Cu')],
+        },
+        field: [makeTutCard('Na'), makeTutCard('Al'), makeTutCard('Ca')],
+        deck: [],
+        phase: 'match_draw',
+      });
+      state.drawnCard = drawn;
+    },
+    highlight: () => {
+      const cards = document.querySelectorAll('#fieldCards .card');
+      for (const c of cards) {
+        const sym = c.querySelector('.card-symbol');
+        if (sym && sym.textContent === 'Ca') {
+          if (!c.id) c.id = 'tut-target-ca';
+          return c;
+        }
+      }
+      return null;
+    },
+    bubblePosition: '#fieldCards',
+    advance: {
+      type: 'forced-tap',
+      get target() {
+        const cards = document.querySelectorAll('#fieldCards .card');
+        for (const c of cards) {
+          const sym = c.querySelector('.card-symbol');
+          if (sym && sym.textContent === 'Ca') {
+            if (!c.id) c.id = 'tut-target-ca';
+            return '#' + c.id;
+          }
+        }
+        return '#fieldCards .card';
+      },
+      delay: 600,
+    },
+  },
+
+  // ---------- Step 5: 配置モーダルの説明 ----------
+  {
+    chapter: '第2章 1ターンの流れ',
+    title: '取った札の配置',
+    message: '取った札を<strong>どの役に入れるか</strong>を選びます。<br>役のリストから入れたい役の行をタップ。<br>迷ったら<strong>「保留」</strong>でOK(後で動かせます)。<br><br>まず<strong>「次へ」</strong>を押してモーダルを開きましょう。',
+    setup: () => {
+      // 役の説明：盤面はクリア
+      setTutState({
+        self: {
+          hand: [],
+          pending: [],
+        },
+        field: [],
+      });
+    },
+    bubblePosition: 'center',
+    advance: { type: 'next-button', label: '次へ' },
+    onAdvance: () => {
+      // モーダルを開かずに次のステップへ進む（説明のみ）
+    },
+  },
+
+  // ---------- Step 6: 2枚配置ルールと保留 ----------
+  {
+    chapter: '第2章 1ターンの流れ',
+    title: '2枚配置ルールと保留',
+    message: '1ターンで役に置けるのは<strong>合計2枚まで</strong>。残りは自動で<strong>保留</strong>になります。<br><br>保留札は<strong>次に新しい札を取った時</strong>だけ役に動かせます。何もしないターンでは凍結されたまま。<br>溜め込みすぎ注意です。',
+    setup: () => {
+      setTutState({
+        self: {
+          hand: [],
+          pending: [makeTutCard('Cu'), makeTutCard('Na')],
+        },
+        field: [],
+      });
+    },
+    highlight: '#selfPending',
+    bubblePosition: '#selfPending',
+    advance: { type: 'next-button', label: '分かった' },
+  },
+
+  // ---------- Step 7: 役の種類(一覧) ----------
+  {
+    chapter: '第3章 役と配置',
+    title: '役の種類',
+    message: '役は全部で<strong>14種類</strong>。化学的に意味のある組み合わせです。<br>たとえば「<strong>アルカリ金属</strong>」は Li+Na+K(全部+1価)、<br>「<strong>ステンレス</strong>」は Fe+Cr+Ni、<br>「<strong>炎色反応</strong>」は燃やすと色が出る金属。<br><br>全部覚えなくてOK。<strong>右の役一覧</strong>でいつでも確認できます。',
+    setup: () => {
+      setTutState({ field: [] });
+    },
+    highlight: '#sidebar',
+    bubblePosition: '#sidebar',
+    advance: { type: 'next-button', label: '次へ' },
+  },
+
+  // ---------- Step 8: 役の成立(リーチ) ----------
+  {
+    chapter: '第3章 役と配置',
+    title: '役を成立させる',
+    message: 'いま<strong>アルカリ土類金属(Mg+Ca+Ba)</strong>の役がリーチ。<br>Mg と Ca はもう取得済みで、あと Ba を取れば成立です。<br><br>手札の <strong>Ba</strong> をタップしてください。',
+    setup: () => {
+      // アルカリ土類金属(Mg+Ca+Ba)に Mg と Ca が既に配置されている状態
+      const mgCard = makeTutCard('Mg');
+      const caCard = makeTutCard('Ca');
+      const baInHand = makeTutCard('Ba');
+      const baOnField = makeTutCard('Ba');
+
+      setTutState({
+        self: {
+          hand: [baInHand],
+          pending: [],
+          slots: {
+            'alkali_earth': { 'Mg': mgCard, 'Ca': caCard, 'Ba': null },
+          },
+        },
+        field: [baOnField, makeTutCard('Na'), makeTutCard('Li')],
+        deck: [makeTutCard('K')],  // めくり札は不要だが念のため
+      });
+    },
+    highlight: '#selfHand .card',
+    bubblePosition: '#selfHand',
+    advance: {
+      type: 'forced-tap',
+      target: '#selfHand .card',
+      delay: 200,
+    },
+  },
+
+  // ---------- Step 8b: 場のBaを取る ----------
+  {
+    chapter: '第3章 役と配置',
+    title: '役を成立させる',
+    message: '光った場札の <strong>Ba</strong> をタップして取りましょう。',
+    setup: () => {
+      const mgCard = makeTutCard('Mg');
+      const caCard = makeTutCard('Ca');
+      const baInHand = makeTutCard('Ba');
+      const baOnField = makeTutCard('Ba');
+
+      setTutState({
+        self: {
+          hand: [baInHand],
+          pending: [],
+          slots: {
+            'alkali_earth': { 'Mg': mgCard, 'Ca': caCard, 'Ba': null },
+          },
+        },
+        field: [baOnField, makeTutCard('Na'), makeTutCard('Li')],
+        deck: [makeTutCard('K')],
+        phase: 'match_hand',
+      });
+      state.selectedHandCard = baInHand;
+    },
+    highlight: () => {
+      const cards = document.querySelectorAll('#fieldCards .card');
+      for (const c of cards) {
+        const sym = c.querySelector('.card-symbol');
+        if (sym && sym.textContent === 'Ba') {
+          if (!c.id) c.id = 'tut-target-ba';
+          return c;
+        }
+      }
+      return null;
+    },
+    bubblePosition: '#fieldCards',
+    advance: {
+      type: 'forced-tap',
+      get target() {
+        const cards = document.querySelectorAll('#fieldCards .card');
+        for (const c of cards) {
+          const sym = c.querySelector('.card-symbol');
+          if (sym && sym.textContent === 'Ba') {
+            if (!c.id) c.id = 'tut-target-ba';
+            return '#' + c.id;
+          }
+        }
+        return '#fieldCards .card';
+      },
+      delay: 1500,  // 山札めくりのアニメ待ち
+    },
+  },
+
+  // ---------- Step 9: こいこい説明 ----------
+  {
+    chapter: '第4章 上がりとこいこい',
+    title: '上がる? こいこい?',
+    message: '役が成立すると、<strong>「上がる」か「こいこい」</strong>を選べます。<br><br>このターンで<strong>7点以上</strong>あれば上がれます(弱CPU戦のみ5点でOK)。<br><br>アルカリ土類金属は5点なので、<strong>このまま上がるには点数不足</strong>。「こいこい」して伸ばすか、点数を貯めるしかありません。',
+    setup: () => {
+      // モーダルは開かずに、説明のみ
+      setTutState({
+        self: {
+          hand: [],
+          pending: [],
+          slots: {
+            'alkali_earth': {
+              'Mg': makeTutCard('Mg'),
+              'Ca': makeTutCard('Ca'),
+              'Ba': makeTutCard('Ba'),
+            },
+          },
+          completedRoles: ['alkali_earth'],
+          koikoi: true,
+          koikoiCount: 1,
+          score: 5,
+        },
+        field: [],
+      });
+    },
+    bubblePosition: 'center',
+    advance: { type: 'next-button', label: '次へ' },
+  },
+
+  // ---------- Step 10: こいこいの戦略 ----------
+  {
+    chapter: '第4章 上がりとこいこい',
+    title: 'こいこいの戦略',
+    message: 'こいこい中は<strong>新しい役を作ると +3点ボーナス</strong>。<br>ただし相手も役を作って上がると<strong>大量失点</strong>します。<br><br>判断のヒント:<br>① 手札と山札に伸ばせる札がある→こいこい有利<br>② 相手が役にリーチ→上がるが安全<br>③ 点差で攻める/守るを決める',
+    setup: () => {
+      setTutState({ field: [] });
+    },
+    bubblePosition: 'center',
+    advance: { type: 'next-button', label: '次へ' },
+  },
+
+  // ---------- Step 11: 完了 ----------
+  {
+    chapter: '完了',
+    title: 'お疲れさま!',
+    message: 'これで基本はバッチリです。<br>1ゲームは<strong>1〜7ラウンドの累計得点</strong>で総合勝者が決まります(設定で選べます)。<br><br>まずは<strong>CPU「弱」</strong>から始めてみましょう。',
+    setup: () => {
+      setTutState({ field: [] });
+    },
+    bubblePosition: 'center',
+    advance: {
+      type: 'final-button',
+      buttons: [
+        { label: 'CPU弱と対戦', action: () => {
+          // CPU弱対戦を開始
+          if (typeof openCpuSetup === 'function') openCpuSetup();
+        }},
+        { label: 'メニューに戻る', secondary: true, action: () => {
+          // 何もしない (end側でメニューを開く)
+        }},
+      ],
+    },
+  },
+];
+
+// ============================================================
+// CPUターンスケジューラのチュートリアル中抑制
+// ============================================================
+const _origScheduleCpuTurnIfNeeded = (typeof scheduleCpuTurnIfNeeded === 'function') ? scheduleCpuTurnIfNeeded : null;
+if (_origScheduleCpuTurnIfNeeded) {
+  window.scheduleCpuTurnIfNeeded = function() {
+    if (tutorial.active) return;
+    return _origScheduleCpuTurnIfNeeded.apply(this, arguments);
+  };
+}
 </script>
 </body>
 </html>
