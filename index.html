@@ -1108,6 +1108,37 @@ aside h2 {
   pointer-events: auto !important;
 }
 
+/* チュートリアルで「これも注目！」と示すための強制ハイライト
+   クリック対象ではない（pointer-eventsは付けない）が、暗幕の上に出して光らせる */
+.tut-glow {
+  position: relative;
+  z-index: 202 !important;
+  border-color: var(--gold) !important;
+  box-shadow:
+    0 2px 4px rgba(0,0,0,0.3),
+    0 0 0 2px var(--gold-bright),
+    0 0 20px rgba(201, 169, 97, 0.6),
+    inset 0 1px 0 rgba(255,255,255,0.5) !important;
+  animation: tutGlowPulse 1.5s ease-in-out infinite !important;
+}
+
+@keyframes tutGlowPulse {
+  0%, 100% {
+    box-shadow:
+      0 2px 4px rgba(0,0,0,0.3),
+      0 0 0 2px var(--gold-bright),
+      0 0 20px rgba(201, 169, 97, 0.4),
+      inset 0 1px 0 rgba(255,255,255,0.5);
+  }
+  50% {
+    box-shadow:
+      0 2px 4px rgba(0,0,0,0.3),
+      0 0 0 2px var(--gold-bright),
+      0 0 32px rgba(201, 169, 97, 0.8),
+      inset 0 1px 0 rgba(255,255,255,0.5);
+  }
+}
+
 .tut-bubble {
   position: fixed;
   background: var(--bg-mid);
@@ -6345,8 +6376,9 @@ const tutorial = {
       this._resizeHandler = null;
     }
 
-    // 強制操作の解除
+    // 強制操作・グローの解除
     this.clearForceTap();
+    this.clearExtraGlow();
 
     // 全モーダルを閉じる
     ['placeModal', 'roleModal'].forEach(id => {
@@ -6400,8 +6432,9 @@ const tutorial = {
     document.getElementById('tutProgress').textContent =
       `${this.currentStepIndex + 1} / ${TUTORIAL_STEPS.length}`;
 
-    // 既存の強制操作を解除
+    // 既存の強制操作・グローを解除
     this.clearForceTap();
+    this.clearExtraGlow();
     this.modalForceTarget = null;
 
     // 盤面を仕込む
@@ -6454,6 +6487,9 @@ const tutorial = {
     // ハイライトとふきだし配置
     this.updateHighlight(this.resolveHighlight(step.highlight));
     this.positionBubble(step.bubblePosition);
+
+    // 追加グロー（クリック対象ではないが光らせたい要素）
+    this.applyExtraGlow(step.extraGlow);
 
     // 強制タップ
     if (step.advance && step.advance.type === 'forced-tap') {
@@ -6660,6 +6696,16 @@ const tutorial = {
           c.style.pointerEvents = 'none';
         }
       });
+      // extraGlowが消えていたら再適用
+      if (this._extraGlowSpec) {
+        const specs = Array.isArray(this._extraGlowSpec) ? this._extraGlowSpec : [this._extraGlowSpec];
+        let needsReapply = false;
+        specs.forEach(s => {
+          const el = this.resolveHighlight(s);
+          if (el && !el.classList.contains('tut-glow')) needsReapply = true;
+        });
+        if (needsReapply) this.reapplyExtraGlow();
+      }
     }, 200);
   },
 
@@ -6698,6 +6744,31 @@ const tutorial = {
       return document.querySelector(`[data-card-id="${highlight.cardId}"]`);
     }
     return highlight;
+  },
+
+  // 追加グロー（クリック対象ではないが光らせたい要素）
+  // step.extraGlow: 配列。各要素は文字列(セレクタ)/関数/{cardId}/DOM要素
+  _extraGlowSpec: null,
+
+  applyExtraGlow(spec) {
+    this._extraGlowSpec = spec || null;
+    this.reapplyExtraGlow();
+  },
+
+  reapplyExtraGlow() {
+    // 既存のglowをクリア
+    document.querySelectorAll('.tut-glow').forEach(el => el.classList.remove('tut-glow'));
+    if (!this._extraGlowSpec) return;
+    const specs = Array.isArray(this._extraGlowSpec) ? this._extraGlowSpec : [this._extraGlowSpec];
+    specs.forEach(s => {
+      const el = this.resolveHighlight(s);
+      if (el) el.classList.add('tut-glow');
+    });
+  },
+
+  clearExtraGlow() {
+    this._extraGlowSpec = null;
+    document.querySelectorAll('.tut-glow').forEach(el => el.classList.remove('tut-glow'));
   },
 
   // ----------------- placeModal内強制 -----------------
@@ -6890,6 +6961,10 @@ const TUTORIAL_STEPS = [
       state.drawnCard = tutCards.mg;
     },
     highlight: () => document.querySelector(`[data-card-id="${tutCards.ca.id}"]`),
+    // めくり札Mgも光らせる(クリック対象ではないが、マッチ関係を視覚的に示す)
+    extraGlow: [
+      () => document.querySelector(`[data-card-id="${tutCards.mg.id}"]`),
+    ],
     bubblePosition: '#fieldCards',
     advance: {
       type: 'forced-tap',
