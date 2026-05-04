@@ -1084,34 +1084,49 @@ aside h2 {
   pointer-events: auto !important;
 }
 
+/* チュートリアル中はmatchableも強化(本番ゲームには影響しない) */
+body.tut-active .card.matchable {
+  border-color: #ffd966 !important;
+  box-shadow:
+    0 2px 4px rgba(0,0,0,0.3),
+    0 0 0 3px #ffd966,
+    0 0 16px 4px rgba(255, 217, 102, 0.9),
+    0 0 40px 8px rgba(255, 217, 102, 0.5),
+    inset 0 1px 0 rgba(255,255,255,0.5) !important;
+  animation: tutGlowPulse 1.2s ease-in-out infinite !important;
+}
+
 /* チュートリアルで「これも注目！」と示すための強制ハイライト
    クリック対象ではない（pointer-eventsは付けない）が、暗幕の上に出して光らせる */
 .tut-glow {
   position: relative;
   z-index: 202 !important;
-  border-color: var(--gold) !important;
+  border-color: #ffd966 !important;
   box-shadow:
     0 2px 4px rgba(0,0,0,0.3),
-    0 0 0 2px var(--gold-bright),
-    0 0 20px rgba(201, 169, 97, 0.6),
+    0 0 0 3px #ffd966,
+    0 0 16px 4px rgba(255, 217, 102, 0.9),
+    0 0 40px 8px rgba(255, 217, 102, 0.5),
     inset 0 1px 0 rgba(255,255,255,0.5) !important;
-  animation: tutGlowPulse 1.5s ease-in-out infinite !important;
+  animation: tutGlowPulse 1.2s ease-in-out infinite !important;
 }
 
 @keyframes tutGlowPulse {
   0%, 100% {
     box-shadow:
       0 2px 4px rgba(0,0,0,0.3),
-      0 0 0 2px var(--gold-bright),
-      0 0 20px rgba(201, 169, 97, 0.4),
+      0 0 0 3px #ffd966,
+      0 0 16px 4px rgba(255, 217, 102, 0.7),
+      0 0 32px 6px rgba(255, 217, 102, 0.3),
       inset 0 1px 0 rgba(255,255,255,0.5);
   }
   50% {
     box-shadow:
       0 2px 4px rgba(0,0,0,0.3),
-      0 0 0 2px var(--gold-bright),
-      0 0 32px rgba(201, 169, 97, 0.8),
-      inset 0 1px 0 rgba(255,255,255,0.5);
+      0 0 0 4px #fff2b3,
+      0 0 28px 10px rgba(255, 217, 102, 1),
+      0 0 56px 16px rgba(255, 217, 102, 0.6),
+      inset 0 1px 0 rgba(255,255,255,0.7);
   }
 }
 
