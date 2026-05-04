@@ -1066,38 +1066,14 @@ aside h2 {
 }
 .tut-overlay.active {
   display: block;
-  pointer-events: auto;
+  /* 暗幕は出さず、ふきだしや進捗バーのみクリック可能。背景クリックは透過 */
+  pointer-events: none;
 }
 
+/* スポットライトは無効化（暗幕廃止、tut-glowで個別ハイライト） */
 .tut-spotlight {
-  position: fixed;
-  border-radius: 4px;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.78);
-  pointer-events: none;
-  transition: top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-              left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-              width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-              height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  display: none !important;
 }
-.tut-spotlight.center {
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-}
-.tut-spotlight::before {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border: 1px solid var(--gold);
-  border-radius: 6px;
-  animation: tutPulse 1.6s ease-in-out infinite;
-  pointer-events: none;
-}
-.tut-spotlight.center::before { display: none; }
-
-@keyframes tutPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 169, 97, 0.4); }
   50% { box-shadow: 0 0 0 8px rgba(201, 169, 97, 0); }
 }
 
