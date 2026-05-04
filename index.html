@@ -40,6 +40,22 @@ body {
   font-size: 14px;
 }
 
+/* 和風テーマ：金箔御殿の背景 */
+body.theme-japanese {
+  background-color: #1a1410;
+  background-image: 
+    linear-gradient(rgba(26, 20, 16, 0.55), rgba(26, 20, 16, 0.55)),
+    url('koikoihaikei.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+body.theme-japanese .modal-overlay {
+  background: rgba(26, 20, 16, 0.78) !important;
+  backdrop-filter: blur(4px);
+}
+
 .app {
   max-width: 1400px;
   margin: 0 auto;
@@ -1437,6 +1453,9 @@ body.tut-active .action-bar > * {
   </div>
 </div>
 
+<!-- BGM -->
+<audio id="bgmAudio" loop preload="auto" src="koikoibgm.mp3"></audio>
+
 <!-- スタート画面 -->
 <div class="modal-overlay active" id="startScreen" style="background: var(--bg-deep);">
   <div style="text-align: center; max-width: 500px; width: 90%;">
@@ -1462,6 +1481,21 @@ body.tut-active .action-bar > * {
       <button class="primary" style="padding: 16px; font-size: 1rem; letter-spacing: 0.2em; background: var(--bg-mid); color: var(--vermilion); border-color: var(--vermilion);" onclick="toggleHelp()">
         遊び方（チュートリアル）
       </button>
+    </div>
+
+    <!-- 外観・BGM 設定 -->
+    <div style="margin-top: 28px; padding-top: 20px; border-top: 1px solid rgba(201, 169, 97, 0.25); max-width: 320px; margin-left: auto; margin-right: auto;">
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--gold); letter-spacing: 0.3em; opacity: 0.7; margin-bottom: 12px;">
+        SETTINGS
+      </div>
+      <div class="expert-toggle-row" onclick="toggleTheme()" style="margin-top: 0; margin-bottom: 10px; justify-content: space-between; padding: 0 8px;">
+        <span>外観：和風</span>
+        <div class="expert-toggle-switch" id="themeSwitch"></div>
+      </div>
+      <div class="expert-toggle-row" onclick="toggleBgm()" style="margin-top: 0; justify-content: space-between; padding: 0 8px;">
+        <span>BGM</span>
+        <div class="expert-toggle-switch" id="bgmSwitch"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -2039,6 +2073,77 @@ function toggleExpertMode(switchId) {
     sw.classList.toggle('on', expertMode);
   });
 }
+
+// ===== 外観テーマ・BGM 設定 =====
+const SETTINGS_KEY = 'metalKoikoiSettings';
+
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return { theme: 'default', bgm: false };
+}
+
+function saveSettings(s) {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  } catch (e) {}
+}
+
+let userSettings = loadSettings();
+
+function applyTheme() {
+  document.body.classList.toggle('theme-japanese', userSettings.theme === 'japanese');
+  const sw = document.getElementById('themeSwitch');
+  if (sw) sw.classList.toggle('on', userSettings.theme === 'japanese');
+}
+
+function applyBgm() {
+  const audio = document.getElementById('bgmAudio');
+  const sw = document.getElementById('bgmSwitch');
+  if (sw) sw.classList.toggle('on', userSettings.bgm);
+  if (!audio) return;
+  audio.volume = 0.4;
+  if (userSettings.bgm) {
+    // ユーザー操作後に呼ばれる前提なので再生可能
+    const p = audio.play();
+    if (p && p.catch) p.catch(() => {/* 自動再生ブロック時は無視 */});
+  } else {
+    audio.pause();
+  }
+}
+
+function toggleTheme() {
+  userSettings.theme = (userSettings.theme === 'japanese') ? 'default' : 'japanese';
+  saveSettings(userSettings);
+  applyTheme();
+}
+
+function toggleBgm() {
+  userSettings.bgm = !userSettings.bgm;
+  saveSettings(userSettings);
+  applyBgm();
+}
+
+// 初期適用（DOM構築後）
+window.addEventListener('DOMContentLoaded', () => {
+  applyTheme();
+  // BGMはスイッチ表示のみ反映、再生は最初のユーザー操作後に行う
+  const sw = document.getElementById('bgmSwitch');
+  if (sw) sw.classList.toggle('on', userSettings.bgm);
+  if (userSettings.bgm) {
+    const tryPlay = () => {
+      applyBgm();
+      document.removeEventListener('click', tryPlay);
+      document.removeEventListener('keydown', tryPlay);
+      document.removeEventListener('touchstart', tryPlay);
+    };
+    document.addEventListener('click', tryPlay, { once: false });
+    document.addEventListener('keydown', tryPlay, { once: false });
+    document.addEventListener('touchstart', tryPlay, { once: false });
+  }
+});
 
 // 2人対戦設定画面を開く
 function openPvpSetup() {
