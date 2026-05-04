@@ -4333,10 +4333,12 @@ function cpuStrongRoleProbability(player, roleId) {
   return totalProb;
 }
 
-// カード取得の貢献度（強CPU版・確率ベース）
-// 並と違って、確率を使って未来価値を計算
+// カード取得の貢献度（強CPU版・確率ベース、役の組み合わせ最適化）
+// v3.21: 複数役にまたがる総合価値で評価（独立評価から累計評価へ）
 function cpuStrongEvaluateCardContribution(player, card) {
-  let bestScore = 0;
+  let totalScore = 0;
+  let bestImmediate = 0; // 即完成時のスコア（これは加算しない、別枠）
+  
   for (const role of ROLES) {
     if (!role.elements.includes(card.symbol)) continue;
     if (hasSlot(player, role.id)) {
@@ -4346,32 +4348,35 @@ function cpuStrongEvaluateCardContribution(player, card) {
     if (player.completedRoles.includes(role.id) && !role.extensible) continue;
     if (role.extensible && player.completedRoles.includes(role.id + '_full')) continue;
     
-    // 「このカードを置いた後」の状態で確率計算したいが、簡易には今の確率を使う
     const remaining = cpuRemainingForRole(player, role.id);
     if (remaining < 0) continue;
     const afterRemaining = remaining - 1;
     
-    let score;
     if (afterRemaining === 0) {
-      // 即完成：役の点数を加算
+      // 即完成：最大点を加算（即完成は1つしか起きないので、最大値だけ取る）
       const pts = role.extensible
         ? (remaining === 3 ? role.points : role.completePoints)
         : role.points;
-      score = 15 + pts;
+      const immediateScore = 15 + pts;
+      if (immediateScore > bestImmediate) bestImmediate = immediateScore;
     } else {
       // 残り afterRemaining 個を確率的に取れる期待値
-      // この役の現在の完成確率を計算
       const prob = cpuStrongRoleProbability(player, role.id);
-      // 完成時の点数
       const completionPoints = role.extensible
         ? (afterRemaining + 1 <= 3 ? role.points : role.completePoints)
         : role.points;
-      // 期待値
-      score = prob * completionPoints + 1; // +1 ベース：置くこと自体に価値
+      // 役の進捗度合いも加味（既に進んでいる役ほど価値が高い）
+      // afterRemaining が小さい = 残り少ない = 完成に近い
+      const progressBonus = 1 / (afterRemaining + 1); // 残り1で1.0、残り2で0.33、残り3で0.25
+      // 期待値 + 進捗ボーナス
+      const score = prob * completionPoints * (0.5 + progressBonus) + 0.5;
+      // 加算（独立評価から組み合わせ評価へ）
+      totalScore += score;
     }
-    if (score > bestScore) bestScore = score;
   }
-  return bestScore;
+  
+  // 即完成があれば最大優先、それに加えて他の役への貢献も加算
+  return bestImmediate + totalScore;
 }
 
 // 場札選択（強CPU版・乱数小さめ）
@@ -4381,51 +4386,81 @@ function cpuStrongPickFieldCard(player, fieldCards) {
   
   const scored = fieldCards.map(c => ({
     card: c,
-    score: cpuJitter(cpuStrongEvaluateCardContribution(player, c), 0.05),
+    score: cpuJitter(cpuStrongEvaluateCardContribution(player, c), 0.02),
   }));
   scored.sort((a, b) => b.score - a.score);
   
-  // 5%のみ次善手
-  if (scored.length >= 2 && Math.random() < 0.05) {
+  // 2%のみ次善手
+  if (scored.length >= 2 && Math.random() < 0.02) {
     return scored[1].card;
   }
   return scored[0].card;
 }
 
 // 手札選択（強CPU版）
+// 手札選択（強CPU版・軽量モンテカルロ付き）
 function cpuStrongPickHandCard(player, hand, field) {
   if (hand.length === 0) return null;
   if (hand.length === 1) return hand[0];
   
+  // ステップ1: ヒューリスティックで全手札をスコアリング
+  // v3.21追加：「残り手札にも貢献する元素」をボーナス評価（シナジー）
   const scored = hand.map(card => {
     const matches = findMatches(card, field);
+    let baseScore;
+    let canCapture;
+    
     if (matches.length > 0) {
       const bestField = cpuStrongPickFieldCard(player, matches);
       const handContribution = cpuStrongEvaluateCardContribution(player, card);
       const fieldContribution = cpuStrongEvaluateCardContribution(player, bestField);
-      return {
-        card,
-        canCapture: true,
-        score: handContribution + fieldContribution,
-      };
+      baseScore = handContribution + fieldContribution;
+      canCapture = true;
     } else {
-      // 捨てる札：貢献度が低いほど良い
       const contribution = cpuStrongEvaluateCardContribution(player, card);
-      return {
-        card,
-        canCapture: false,
-        score: -contribution * 0.5,
-      };
+      baseScore = -contribution * 0.5;
+      canCapture = false;
     }
+    
+    // シナジーボーナス：このカードが貢献する役と、
+    // 残り手札の他のカードも貢献する役の重なりをカウント
+    let synergyBonus = 0;
+    if (canCapture) {
+      const myRoles = new Set();
+      for (const role of ROLES) {
+        if (!role.elements.includes(card.symbol)) continue;
+        if (player.completedRoles.includes(role.id) && !role.extensible) continue;
+        if (role.extensible && player.completedRoles.includes(role.id + '_full')) continue;
+        myRoles.add(role.id);
+      }
+      // 他の手札がこの役に貢献するか
+      for (const otherCard of hand) {
+        if (otherCard.id === card.id) continue;
+        for (const roleId of myRoles) {
+          const role = ROLE_BY_ID[roleId];
+          if (role.elements.includes(otherCard.symbol)) {
+            // 既に置かれてる元素ならスキップ
+            if (hasSlot(player, roleId) && player.slots[roleId][otherCard.symbol]) continue;
+            synergyBonus += 0.5; // 1組みのシナジーで0.5点
+          }
+        }
+      }
+    }
+    
+    return {
+      card,
+      canCapture,
+      score: baseScore + synergyBonus,
+    };
   });
   
   scored.sort((a, b) => {
     if (a.canCapture !== b.canCapture) return a.canCapture ? -1 : 1;
-    return cpuJitter(b.score, 0.05) - cpuJitter(a.score, 0.05);
+    return cpuJitter(b.score, 0.02) - cpuJitter(a.score, 0.02);
   });
   
-  // 5%のみ次善手
-  if (scored.length >= 2 && Math.random() < 0.05) {
+  // 2%のみ次善手
+  if (scored.length >= 2 && Math.random() < 0.02) {
     const captureOptions = scored.filter(s => s.canCapture);
     if (captureOptions.length >= 2) return captureOptions[1].card;
     return scored[1].card;
@@ -4473,7 +4508,7 @@ function cpuStrongPickPlacements(player, captures, existingPendings) {
       options.push({
         card,
         roleId: role.id,
-        score: cpuJitter(score, 0.05),
+        score: cpuJitter(score, 0.02),
       });
     }
   }
@@ -5381,19 +5416,18 @@ function cpuCheckRoles() {
       if (idx >= 0) cpu.completedRoles.splice(idx, 1);
     }
   } else if (cpuDifficulty === 'strong') {
-    // 「強」: 確率ベースの正確な期待値計算
+    // 「強」: 確率ベースの正確な期待値計算（v3.20と同じ、ジッターのみ調整）
     const expectedBonus = cpuStrongKoikoiExpectation(cpu);
     const koikoiGain = expectedBonus + KOIKOI_BONUS_PER_COUNT;
     
     // リスク係数：今の点数が高いほど「逃げ得」
-    // 強は並より「リスク認識」が正確：相手が役を作りそうなら早めに上がる
     const opponent = state.players[0];
     const oppCompletedRoles = opponent.completedRoles.length;
     const riskFactor = totalPoints * 0.5 + oppCompletedRoles * 3;
     
     const baseDecisionAgari = koikoiGain <= riskFactor;
-    if (Math.random() < 0.05) {
-      // 5%だけミス
+    if (Math.random() < 0.02) {
+      // 2%だけミス（v3.20の5% → 2%に縮小）
       willAgari = !baseDecisionAgari;
     } else {
       willAgari = baseDecisionAgari;
