@@ -3343,6 +3343,7 @@ function proceedToDraw() {
 }
 
 function refillFieldIfNeeded() {
+  if (typeof tutorial !== 'undefined' && tutorial.active) return;
   if (state.field.length > FIELD_REFILL_TRIGGER) return;
   let added = 0;
   while (state.field.length < FIELD_REFILL_TARGET && state.deck.length > 0) {
@@ -3997,6 +3998,10 @@ function endTurn() {
 }
 
 function endRound(reason) {
+  if (typeof tutorial !== 'undefined' && tutorial.active) {
+    console.log('[tutorial] endRound suppressed:', reason);
+    return;
+  }
   state.gameOver = true;
   finishCurrentRound('round_end');
 }
@@ -5481,6 +5486,7 @@ function cpuOniDecideKoikoi(cpu, opp, totalPoints, newRoles) {
 
 // CPU の手番なら起動。手番でなければ何もしない
 function scheduleCpuTurnIfNeeded() {
+  if (typeof tutorial !== 'undefined' && tutorial.active) return;
   if (gameMode !== 'cpu') return;
   if (state.gameOver) return;
   if (state.phase !== 'play_hand') return; // 演出中などは動かない
@@ -7021,15 +7027,9 @@ const TUTORIAL_STEPS = [
 ];
 
 // ============================================================
-// CPUターンスケジューラのチュートリアル中抑制
+// チュートリアル中抑制（関数定義側にガードを直接埋め込んでいるため、
+// このラッパーは念のための保険）
 // ============================================================
-const _origScheduleCpuTurnIfNeeded = (typeof scheduleCpuTurnIfNeeded === 'function') ? scheduleCpuTurnIfNeeded : null;
-if (_origScheduleCpuTurnIfNeeded) {
-  window.scheduleCpuTurnIfNeeded = function() {
-    if (tutorial.active) return;
-    return _origScheduleCpuTurnIfNeeded.apply(this, arguments);
-  };
-}
 </script>
 </body>
 </html>
