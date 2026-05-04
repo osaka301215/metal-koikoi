@@ -1562,8 +1562,8 @@ body.tut-active .action-bar > * {
     </div>
     <div id="rankingRegisterSummary" style="background: rgba(201, 169, 97, 0.08); border: 1px solid rgba(201, 169, 97, 0.3); border-radius: 6px; padding: 14px; margin-bottom: 20px; text-align: center; color: var(--bg-card);"></div>
     <div style="text-align: left; margin-bottom: 16px;">
-      <div style="font-size: 0.75rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 6px;">イニシャル（A.B 形式・英大文字）</div>
-      <input type="text" id="rankingInitialsInput" maxlength="3" placeholder="A.B" class="name-input" style="text-align: center; font-size: 1.4rem; letter-spacing: 0.3em; font-family: 'JetBrains Mono', monospace;" oninput="onInitialsInput(event)">
+      <div style="font-size: 0.75rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 6px;">イニシャル（英大文字2文字）</div>
+      <input type="text" id="rankingInitialsInput" maxlength="3" placeholder="AB" class="name-input" style="text-align: center; font-size: 1.4rem; letter-spacing: 0.3em; font-family: 'JetBrains Mono', monospace;" oninput="onInitialsInput(event)">
       <div id="rankingInitialsError" style="font-size: 0.75rem; color: var(--vermilion); margin-top: 6px; min-height: 18px;"></div>
     </div>
     <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -2431,18 +2431,30 @@ function closeRankingRegisterDialog() {
 }
 
 // イニシャル入力バリデーション（A.B 形式：英大文字 + ピリオド + 英大文字）
+// ピリオドなしの「AB」も許容して内部で「A.B」に正規化
 function validateInitials(raw) {
-  const s = (raw || '').trim().toUpperCase();
+  let s = (raw || '').trim().toUpperCase();
+  // ピリオドなしの2文字なら自動でピリオド挿入
+  if (/^[A-Z]{2}$/.test(s)) s = s[0] + '.' + s[1];
   if (!/^[A-Z]\.[A-Z]$/.test(s)) {
-    return { ok: false, msg: '「A.B」のように 英大文字＋ピリオド＋英大文字 で入力してください' };
+    return { ok: false, msg: '英大文字2文字（例: AB または A.B）で入力してください' };
   }
   return { ok: true, value: s };
 }
 
-// 入力欄の変化に応じて自動整形（小文字→大文字）
+// 入力欄の変化に応じて自動整形（小文字→大文字、英字2文字でピリオド自動挿入）
 function onInitialsInput(e) {
-  const v = e.target.value.toUpperCase();
-  if (v !== e.target.value) e.target.value = v;
+  const input = e.target;
+  let v = input.value.toUpperCase();
+  // 英字とピリオド以外を除去
+  v = v.replace(/[^A-Z.]/g, '');
+  // 「AB」と打たれたら「A.B」に自動変換
+  if (/^[A-Z]{2}$/.test(v)) {
+    v = v[0] + '.' + v[1];
+  }
+  // 「A.B」より長くなりそうなら丸める
+  if (v.length > 3) v = v.slice(0, 3);
+  if (v !== input.value) input.value = v;
 }
 
 // ランキング登録実行
