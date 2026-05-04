@@ -1147,6 +1147,10 @@ body.tut-active .card.matchable {
   pointer-events: auto;
 }
 
+.tut-bubble {
+  --arrow-pos: 50%;
+}
+
 .tut-bubble::before,
 .tut-bubble::after {
   content: '';
@@ -1158,7 +1162,7 @@ body.tut-active .card.matchable {
 .tut-bubble[data-arrow="bottom"]::before {
   display: block;
   bottom: -10px;
-  left: 50%;
+  left: var(--arrow-pos);
   transform: translateX(-50%);
   border-left: 10px solid transparent;
   border-right: 10px solid transparent;
@@ -1167,7 +1171,7 @@ body.tut-active .card.matchable {
 .tut-bubble[data-arrow="bottom"]::after {
   display: block;
   bottom: -7px;
-  left: 50%;
+  left: var(--arrow-pos);
   transform: translateX(-50%);
   border-left: 8px solid transparent;
   border-right: 8px solid transparent;
@@ -1176,7 +1180,7 @@ body.tut-active .card.matchable {
 .tut-bubble[data-arrow="top"]::before {
   display: block;
   top: -10px;
-  left: 50%;
+  left: var(--arrow-pos);
   transform: translateX(-50%);
   border-left: 10px solid transparent;
   border-right: 10px solid transparent;
@@ -1185,11 +1189,47 @@ body.tut-active .card.matchable {
 .tut-bubble[data-arrow="top"]::after {
   display: block;
   top: -7px;
-  left: 50%;
+  left: var(--arrow-pos);
   transform: translateX(-50%);
   border-left: 8px solid transparent;
   border-right: 8px solid transparent;
   border-bottom: 8px solid var(--bg-mid);
+}
+.tut-bubble[data-arrow="left"]::before {
+  display: block;
+  left: -10px;
+  top: var(--arrow-pos);
+  transform: translateY(-50%);
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-right: 10px solid var(--gold);
+}
+.tut-bubble[data-arrow="left"]::after {
+  display: block;
+  left: -7px;
+  top: var(--arrow-pos);
+  transform: translateY(-50%);
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 8px solid var(--bg-mid);
+}
+.tut-bubble[data-arrow="right"]::before {
+  display: block;
+  right: -10px;
+  top: var(--arrow-pos);
+  transform: translateY(-50%);
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-left: 10px solid var(--gold);
+}
+.tut-bubble[data-arrow="right"]::after {
+  display: block;
+  right: -7px;
+  top: var(--arrow-pos);
+  transform: translateY(-50%);
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 8px solid var(--bg-mid);
 }
 
 .tut-bubble-chapter {
@@ -6530,6 +6570,7 @@ const tutorial = {
     const bubble = document.getElementById('tutBubble');
     bubble.style.transform = '';
     bubble.dataset.arrow = 'none';
+    bubble.style.setProperty('--arrow-pos', '50%');
 
     if (!position || position === 'center') {
       bubble.style.top = '50%';
@@ -6538,17 +6579,23 @@ const tutorial = {
       return;
     }
 
-    // position は文字列(セレクタ) または { target, side } オブジェクト
-    let targetSelector = null;
+    // position は文字列(セレクタ) または { target, side, noArrow } オブジェクト
+    // target は文字列セレクタ、関数、DOM要素のいずれでも可
+    let targetSpec = null;
     let preferredSide = 'auto';
+    let noArrow = false;
     if (typeof position === 'string') {
-      targetSelector = position;
+      targetSpec = position;
     } else if (typeof position === 'object') {
-      targetSelector = position.target;
+      targetSpec = position.target;
       preferredSide = position.side || 'auto';
+      noArrow = position.noArrow === true;
     }
 
-    let target = targetSelector ? document.querySelector(targetSelector) : null;
+    let target = null;
+    if (typeof targetSpec === 'string') target = document.querySelector(targetSpec);
+    else if (typeof targetSpec === 'function') target = targetSpec();
+    else if (targetSpec instanceof Element) target = targetSpec;
 
     if (!target) {
       bubble.style.top = '50%';
@@ -6559,7 +6606,7 @@ const tutorial = {
 
     const rect = target.getBoundingClientRect();
     const bRect = bubble.getBoundingClientRect();
-    const margin = 16;
+    const margin = 12;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
@@ -6573,7 +6620,7 @@ const tutorial = {
       else if (rect.bottom + bRect.height + margin <= vh - 8) side = 'bottom';
       else if (rect.left - bRect.width - margin >= 8) side = 'left';
       else if (rect.right + bRect.width + margin <= vw - 8) side = 'right';
-      else side = 'top'; // フォールバック
+      else side = 'top';
     }
 
     if (side === 'top') {
@@ -6587,20 +6634,35 @@ const tutorial = {
     } else if (side === 'left') {
       top = rect.top + rect.height / 2 - bRect.height / 2;
       left = rect.left - bRect.width - margin;
-      arrow = 'none'; // 左右配置時はアロー省略
+      arrow = 'right';
     } else if (side === 'right') {
       top = rect.top + rect.height / 2 - bRect.height / 2;
       left = rect.right + margin;
-      arrow = 'none';
+      arrow = 'left';
     }
 
-    // 画面端で調整
-    left = Math.max(8, Math.min(left, vw - bRect.width - 8));
-    top = Math.max(8, Math.min(top, vh - bRect.height - 8));
+    // 画面端で調整(クランプ)
+    const clampedLeft = Math.max(8, Math.min(left, vw - bRect.width - 8));
+    const clampedTop = Math.max(8, Math.min(top, vh - bRect.height - 8));
 
-    bubble.style.top = `${top}px`;
-    bubble.style.left = `${left}px`;
-    bubble.dataset.arrow = arrow;
+    bubble.style.top = `${clampedTop}px`;
+    bubble.style.left = `${clampedLeft}px`;
+    bubble.dataset.arrow = noArrow ? 'none' : arrow;
+
+    // 矢印位置を対象の中心に向ける
+    // 上下矢印の場合：吹き出し内のX座標 = (対象中心X) - (吹き出し左座標)
+    if (arrow === 'top' || arrow === 'bottom') {
+      const targetCenterX = rect.left + rect.width / 2;
+      const arrowX = targetCenterX - clampedLeft;
+      // 吹き出し内に収まるようクランプ(端からは18px最低でも離す)
+      const clampedArrowX = Math.max(18, Math.min(arrowX, bRect.width - 18));
+      bubble.style.setProperty('--arrow-pos', `${clampedArrowX}px`);
+    } else if (arrow === 'left' || arrow === 'right') {
+      const targetCenterY = rect.top + rect.height / 2;
+      const arrowY = targetCenterY - clampedTop;
+      const clampedArrowY = Math.max(18, Math.min(arrowY, bRect.height - 18));
+      bubble.style.setProperty('--arrow-pos', `${clampedArrowY}px`);
+    }
   },
 
   // ----------------- 強制タップ制御 -----------------
@@ -6878,7 +6940,12 @@ const TUTORIAL_STEPS = [
     extraGlow: [
       () => document.querySelector(`[data-card-id="${tutCards.fe.id}"]`),
     ],
-    bubblePosition: '#selfHand',
+    // 矢印なしで全体説明として表示(Image1: 四角囲い)
+    bubblePosition: {
+      target: () => document.querySelector(`[data-card-id="${tutCards.fe.id}"]`),
+      side: 'right',
+      noArrow: true,
+    },
     advance: { type: 'next-button', label: 'なるほど' },
   },
 
@@ -6901,7 +6968,11 @@ const TUTORIAL_STEPS = [
     extraGlow: [
       () => document.querySelector(`[data-card-id="${tutCards.fe.id}"]`),
     ],
-    bubblePosition: '#selfHand',
+    // Feカードの右隣に矢印付きで表示
+    bubblePosition: {
+      target: () => document.querySelector(`[data-card-id="${tutCards.fe.id}"]`),
+      side: 'right',
+    },
     advance: {
       type: 'forced-tap',
       get cardId() { return tutCards.fe.id; },
@@ -6915,8 +6986,6 @@ const TUTORIAL_STEPS = [
     title: '価数で取る',
     message: '光った場札が取れる候補です。<br>Cu(<strong>+2遷移</strong>)と Al(<strong>+3</strong>)、どちらも Fe とマッチします。<br><strong>Cu をタップ</strong>して取りましょう。',
     setup: () => {
-      // selectHandCardが状態をmatch_handに変えているはず。念のため再構築:
-      // ただしカード自体は同じインスタンスで保持
       setTutState({
         self: { hand: [tutCards.fe] },
         field: [tutCards.cu, tutCards.na, tutCards.al],
@@ -6926,7 +6995,11 @@ const TUTORIAL_STEPS = [
       state.selectedHandCard = tutCards.fe;
     },
     highlight: () => document.querySelector(`[data-card-id="${tutCards.cu.id}"]`),
-    bubblePosition: '#fieldCards',
+    // Cuカードのすぐ下に表示
+    bubblePosition: {
+      target: () => document.querySelector(`[data-card-id="${tutCards.cu.id}"]`),
+      side: 'bottom',
+    },
     advance: {
       type: 'forced-tap',
       get cardId() { return tutCards.cu.id; },
@@ -6956,11 +7029,14 @@ const TUTORIAL_STEPS = [
       state.drawnCard = tutCards.mg;
     },
     highlight: () => document.querySelector(`[data-card-id="${tutCards.ca.id}"]`),
-    // めくり札Mgも光らせる(クリック対象ではないが、マッチ関係を視覚的に示す)
     extraGlow: [
       () => document.querySelector(`[data-card-id="${tutCards.mg.id}"]`),
     ],
-    bubblePosition: '#fieldCards',
+    // めくり札Mgのすぐ下に表示(山札と場の関係を示す位置)
+    bubblePosition: {
+      target: () => document.querySelector(`[data-card-id="${tutCards.mg.id}"]`),
+      side: 'bottom',
+    },
     advance: {
       type: 'forced-tap',
       get cardId() { return tutCards.ca.id; },
@@ -6997,8 +7073,8 @@ const TUTORIAL_STEPS = [
         field: [],
       });
     },
-    highlight: '#selfPending',
-    bubblePosition: '#selfPending',
+    // 保留札エリアの上に配置(矢印で保留札を指す)
+    bubblePosition: { target: '#selfPending', side: 'top' },
     advance: { type: 'next-button', label: '分かった' },
   },
 
@@ -7040,7 +7116,11 @@ const TUTORIAL_STEPS = [
     extraGlow: [
       () => document.querySelector(`[data-card-id="${tutCards.znInHand.id}"]`),
     ],
-    bubblePosition: '#selfHand',
+    // Znカードの右側に表示
+    bubblePosition: {
+      target: () => document.querySelector(`[data-card-id="${tutCards.znInHand.id}"]`),
+      side: 'right',
+    },
     advance: {
       type: 'forced-tap',
       get cardId() { return tutCards.znInHand.id; },
@@ -7054,7 +7134,6 @@ const TUTORIAL_STEPS = [
     title: '役を成立させる',
     message: '光った場札の <strong>Ba</strong> をタップして取りましょう。',
     setup: () => {
-      // Step 8 のカード参照を保持したまま、phaseのみmatch_handに
       const mgPlaced = makeTutCard('Mg');
       const caPlaced = makeTutCard('Ca');
       tutCards.znInHand = makeTutCard('Zn');
@@ -7074,7 +7153,11 @@ const TUTORIAL_STEPS = [
       state.selectedHandCard = tutCards.znInHand;
     },
     highlight: () => document.querySelector(`[data-card-id="${tutCards.baOnField.id}"]`),
-    bubblePosition: '#fieldCards',
+    // Baカードのすぐ下に表示
+    bubblePosition: {
+      target: () => document.querySelector(`[data-card-id="${tutCards.baOnField.id}"]`),
+      side: 'bottom',
+    },
     advance: {
       type: 'forced-tap',
       get cardId() { return tutCards.baOnField.id; },
