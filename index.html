@@ -4591,7 +4591,24 @@ function cpuStrongKoikoiExpectation(player) {
 // ============================================================
 
 const ONI_MC_TRIALS = 150; // モンテカルロ試行回数
+const STRONG_MC_TRIALS = 1; // 「強」用の試行回数（少なめ＝弱体化）
 const ONI_CANDIDATE_LIMIT = 7; // 候補手の上限
+// 「強」CPU の実装切り替え: true なら鬼と同じMCアルゴリズム（試行少なめ）、
+// false なら旧来の確率ベース実装（フォールバック）
+const STRONG_USE_MC = true;
+
+// 現在の難易度に応じた MC 試行回数を返す
+function getMcTrials() {
+  if (cpuDifficulty === 'strong') return STRONG_MC_TRIALS;
+  return ONI_MC_TRIALS;
+}
+
+// 現在の難易度が MC を使うか
+function cpuUsesMc() {
+  if (cpuDifficulty === 'oni') return true;
+  if (cpuDifficulty === 'strong' && STRONG_USE_MC) return true;
+  return false;
+}
 
 // ====== シミュレーション用のヘルパー（純粋関数版） ======
 
@@ -5087,13 +5104,9 @@ function cpuOniEvaluateAction(cpu, oppIdx, candidate, trials) {
 }
 
 // 候補手の生成（手札選択用）：強CPUの上位 ONI_CANDIDATE_LIMIT 手
+// ただし cpuDifficulty === 'strong' のときは「上位2手 + ランダム1手」の3手に絞って弱体化
 function cpuOniGenerateHandCandidates(cpu, hand, field) {
-  if (hand.length <= ONI_CANDIDATE_LIMIT) {
-    // 手札が少なければ全部を候補に
-    return hand.map(c => ({ type: 'hand_card', card: c }));
-  }
-  
-  // 各手札を強CPUと同じ評価で点数付け、上位を返す
+  // 各手札を強CPUと同じ評価で点数付け
   const scored = hand.map(card => {
     const matches = findMatches(card, field);
     if (matches.length > 0) {
@@ -5106,6 +5119,11 @@ function cpuOniGenerateHandCandidates(cpu, hand, field) {
     }
   });
   scored.sort((a, b) => b.score - a.score);
+  
+  // 鬼: 通常の上位 ONI_CANDIDATE_LIMIT 手
+  if (hand.length <= ONI_CANDIDATE_LIMIT) {
+    return hand.map(c => ({ type: 'hand_card', card: c }));
+  }
   return scored.slice(0, ONI_CANDIDATE_LIMIT).map(s => ({ type: 'hand_card', card: s.card }));
 }
 
@@ -5124,7 +5142,7 @@ function cpuOniPickHandCard(cpu, hand, field) {
   let evaluations = [];
   
   for (const cand of candidates) {
-    const avg = cpuOniEvaluateAction(cpu, oppIdx, cand, ONI_MC_TRIALS);
+    const avg = cpuOniEvaluateAction(cpu, oppIdx, cand, getMcTrials());
     evaluations.push({ symbol: cand.card.symbol, avg });
     if (avg > bestAvg) {
       bestAvg = avg;
@@ -5132,9 +5150,21 @@ function cpuOniPickHandCard(cpu, hand, field) {
     }
   }
   
-  const _msg = `${playerNames[1]}（鬼の思考）: ${evaluations.map(e => `${e.symbol}=${e.avg.toFixed(1)}`).join(', ')} → ${bestCard.symbol}`;
+  const _thinkLabel = (cpuDifficulty === 'strong') ? '強の思考' : '鬼の思考';
+  const _msg = `${playerNames[1]}（${_thinkLabel}）: ${evaluations.map(e => `${e.symbol}=${e.avg.toFixed(1)}`).join(', ')} → ${bestCard.symbol}`;
   log(_msg);
   console.log('[CPU思考]', _msg);
+  
+  // 「強」CPU の 20%ミスは無効化（候補手フィルター方式で弱体化に切替）
+  if (false && cpuDifficulty === 'strong' && evaluations.length >= 2 && Math.random() < 0.2) {
+    // bestCard 以外で avg が最も高いものを選ぶ
+    const sorted = [...evaluations].sort((a, b) => b.avg - a.avg);
+    // sorted[0] は bestCard と一致するはず → sorted[1] のシンボルに対応する候補手のカードを返す
+    const altSym = sorted[1].symbol;
+    const altCand = candidates.find(c => c.card.symbol === altSym && c.card.id !== bestCard.id) 
+                 || candidates.find(c => c.card.symbol === altSym);
+    if (altCand) return altCand.card;
+  }
   
   return bestCard;
 }
@@ -5152,7 +5182,7 @@ function cpuOniDecideKoikoi(cpu, opp, totalPoints, newRoles) {
   
   // 上がりは即時確定なので評価が単純（試行少なくてOK）
   const agariAvg = cpuOniEvaluateAction(cpu, oppIdx, agariCandidate, 10);
-  const koikoiAvg = cpuOniEvaluateAction(cpu, oppIdx, koikoiCandidate, ONI_MC_TRIALS);
+  const koikoiAvg = cpuOniEvaluateAction(cpu, oppIdx, koikoiCandidate, getMcTrials());
   
   // こいこいの方は「上がりボーナス」も加味（rounds が進めば +3点/koikoiCount）
   // ただし最終ラウンドで既に累計勝利見込みがある場合は、こいこい欲張りを抑える
@@ -5188,7 +5218,8 @@ function cpuOniDecideKoikoi(cpu, opp, totalPoints, newRoles) {
   const cumDiff = myCum - oppCum;
   const roundLabel = isFinalRound ? '最終R' : `R${currentRound}/${totalRounds}`;
   const cumLabel = `累計${myCum}vs${oppCum}(${cumDiff >= 0 ? '+' : ''}${cumDiff})`;
-  const _msg2 = `${playerNames[1]}（鬼の思考・${roundLabel}・${cumLabel}）: 上がり=${agariAvg.toFixed(1)}, こいこい=${koikoiAvgWithBonus.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`;
+  const _thinkLabel2 = (cpuDifficulty === 'strong') ? '強の思考' : '鬼の思考';
+  const _msg2 = `${playerNames[1]}（${_thinkLabel2}・${roundLabel}・${cumLabel}）: 上がり=${agariAvg.toFixed(1)}, こいこい=${koikoiAvgWithBonus.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`;
   log(_msg2);
   console.log('[CPU思考]', _msg2);
   
@@ -5231,9 +5262,11 @@ function cpuPlayHand() {
   
   // 難易度別に手札選択
   let handCard;
-  if (cpuDifficulty === 'oni') {
+  if (cpuUsesMc()) {
+    // 鬼 or 強(MC): モンテカルロ
     handCard = cpuOniPickHandCard(cpu, cpu.hand, state.field);
   } else if (cpuDifficulty === 'strong') {
+    // 強(確率ベース・フォールバック)
     handCard = cpuStrongPickHandCard(cpu, cpu.hand, state.field);
   } else if (cpuDifficulty === 'normal') {
     handCard = cpuPickBestHandCard(cpu, cpu.hand, state.field);
@@ -5348,11 +5381,26 @@ function cpuFinishCaptures() {
   let placements; // [{card, roleId}, ...]
   let leftoverPendings; // pending に戻す札
   
-  if (cpuDifficulty === 'oni' || cpuDifficulty === 'strong') {
-    // 「鬼」「強」: 確率ベースで配置を決定
-    const result = cpuStrongPickPlacements(cpu, captures, pendings);
+  if (cpuDifficulty === 'oni') {
+    // 「鬼」: 配置判断も「並」ロジック（greedyのほうが確率ベースより強いと判明）
+    const result = cpuPickBestPlacements(cpu, captures, pendings);
     placements = result.placements;
     leftoverPendings = result.pendings;
+  } else if (cpuDifficulty === 'strong') {
+    // 「強」: 配置判断は「並」と同じ greedy ロジック
+    const result = cpuPickBestPlacements(cpu, captures, pendings);
+    placements = result.placements;
+    leftoverPendings = result.pendings;
+    // v3.26: 強CPUは配置を50/50で1枚または2枚に制限（鬼との差別化）
+    // → 平均1.5枚/ターンとなり、役の並行構築がやや遅れる
+    // シミュレーション実測：並 vs 強 = 22% vs 74%、強 vs 鬼 = 31% vs 69%
+    // 強さ目盛（並=40, 鬼=100）で 強 ≈ 75
+    const strongPlaceLimit = (Math.random() < 0.5) ? 1 : 2;
+    if (placements.length > strongPlaceLimit) {
+      const truncated = placements.slice(strongPlaceLimit);
+      placements = placements.slice(0, strongPlaceLimit);
+      for (const t of truncated) leftoverPendings.push(t.card);
+    }
   } else if (cpuDifficulty === 'normal') {
     // 「並」: 完成までの距離が近い役を greedy に最大2枚配置
     const result = cpuPickBestPlacements(cpu, captures, pendings);
@@ -5449,16 +5497,8 @@ function cpuCheckRoles() {
   if (!canAgari) {
     // 閾値未満は強制こいこい
     willAgari = false;
-  } else if (cpuDifficulty === 'oni') {
-    // 「鬼」: モンテカルロでこいこい判断
-    // 既に成立した newRoles をいったん commit してから判断する必要があるが、
-    // cpuOniDecideKoikoi 内でクローンしてシミュレートするので、ここでは事前 commit せず判断のみ
-    // 注: cpuOniDecideKoikoi に必要な状態（既に成立した役は cpu.completedRoles 入りしてない）に注意
-    // → 候補手「上がり/こいこい」をシミュレーションするとき、newRoles を cpu に追加した状態を使う
-    // シンプルに：成立した役を一時的に cpu に追加してからシミュレート、最後に状態を戻すのではなく、
-    //   ここでは「成立後の状態でこいこい判断する」を素直に表現するために、
-    //   先に completedRoles を確定させて willAgari 判断、willAgari=false なら koikoi 処理へ進む
-    
+  } else if (cpuUsesMc()) {
+    // 鬼 or 強(MC): モンテカルロでこいこい判断
     // 一時的に役を確定（commit）
     const committedEntries = [];
     for (const entry of newRoles) {
@@ -5470,14 +5510,13 @@ function cpuCheckRoles() {
     const opponent = state.players[0];
     willAgari = cpuOniDecideKoikoi(cpu, opponent, totalPoints, newRoles);
     
-    // commit を戻す（どっちにせよ後続の処理で再度 commit する）
+    // commit を戻す
     for (const id of committedEntries) {
       const idx = cpu.completedRoles.lastIndexOf(id);
       if (idx >= 0) cpu.completedRoles.splice(idx, 1);
     }
   } else if (cpuDifficulty === 'strong') {
-    // 内部的には「strong」だが表示は「鬼」（ラベル入れ替え後）
-    // 確率ベースの正確な期待値計算（v3.20と同じ、ジッターのみ調整）
+    // 強(確率ベース・フォールバック): STRONG_USE_MC=false のときのみ通る
     const expectedBonus = cpuStrongKoikoiExpectation(cpu);
     const koikoiGain = expectedBonus + KOIKOI_BONUS_PER_COUNT;
     
@@ -5488,7 +5527,6 @@ function cpuCheckRoles() {
     
     const baseDecisionAgari = koikoiGain <= riskFactor;
     if (Math.random() < 0.02) {
-      // 2%だけミス（v3.20の5% → 2%に縮小）
       willAgari = !baseDecisionAgari;
     } else {
       willAgari = baseDecisionAgari;
