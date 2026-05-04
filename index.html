@@ -6024,6 +6024,7 @@ function renderCard(card, options = {}) {
 function renderSlot(player, role) {
   const div = document.createElement('div');
   div.className = 'slot';
+  div.dataset.roleId = role.id;
   const progress = slotProgress(player, role.id);
   const isComplete = isSlotComplete(player, role.id);
   if (isComplete) div.classList.add('complete');
@@ -7115,11 +7116,12 @@ const TUTORIAL_STEPS = [
     },
     extraGlow: [
       () => document.querySelector(`[data-card-id="${tutCards.znInHand.id}"]`),
+      () => document.querySelector('#selfSlots [data-role-id="alkali_earth"]'),
     ],
-    // Znカードの右側に表示
+    // 役スロット(アルカリ土類金属)の上に吹き出しを置いてリーチを示す
     bubblePosition: {
-      target: () => document.querySelector(`[data-card-id="${tutCards.znInHand.id}"]`),
-      side: 'right',
+      target: () => document.querySelector('#selfSlots [data-role-id="alkali_earth"]'),
+      side: 'top',
     },
     advance: {
       type: 'forced-tap',
