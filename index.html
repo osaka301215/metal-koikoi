@@ -6100,7 +6100,9 @@ function render() {
   const drawnSlot = document.getElementById('drawnSlot');
   drawnSlot.innerHTML = '';
   if (state.drawnCard) {
-    drawnSlot.appendChild(renderCard(state.drawnCard, {}));
+    // match_drawフェーズ中は、めくり札も光らせる（場のどれと取るか考えていることを示す）
+    const drawnMatchable = isMyTurn && state.phase === 'match_draw';
+    drawnSlot.appendChild(renderCard(state.drawnCard, { matchable: drawnMatchable }));
   }
   
   // 得点
@@ -6361,6 +6363,14 @@ const tutorial = {
     };
 
     if (returnToMenu) {
+      // 他のセットアップ画面・対戦画面が残っていたらクリア
+      ['pvpSetupScreen', 'cpuSetupScreen', 'onlineSetupScreen',
+       'onlineRoundSelectScreen', 'roomWaitScreen', 'roomJoinScreen',
+       'rematchSetupScreen', 'endModal', 'placeModal', 'roleModal',
+       'ceremonyOverlay'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+      });
       const start = document.getElementById('startScreen');
       if (start) start.classList.add('active');
     }
@@ -6432,7 +6442,9 @@ const tutorial = {
         btn.className = 'tut-btn' + (b.secondary ? ' secondary' : '');
         btn.textContent = b.label;
         btn.onclick = () => {
-          this.end(false);
+          // ボタンごとにメニュー戻りを指定可能（デフォルトはメニュー戻る）
+          const goMenu = b.returnToMenu !== false;
+          this.end(goMenu);
           if (b.action) b.action();
         };
         actions.appendChild(btn);
@@ -6499,10 +6511,17 @@ const tutorial = {
       return;
     }
 
-    let target = null;
+    // position は文字列(セレクタ) または { target, side } オブジェクト
+    let targetSelector = null;
+    let preferredSide = 'auto';
     if (typeof position === 'string') {
-      target = document.querySelector(position);
+      targetSelector = position;
+    } else if (typeof position === 'object') {
+      targetSelector = position.target;
+      preferredSide = position.side || 'auto';
     }
+
+    let target = targetSelector ? document.querySelector(targetSelector) : null;
 
     if (!target) {
       bubble.style.top = '50%';
@@ -6514,16 +6533,43 @@ const tutorial = {
     const rect = target.getBoundingClientRect();
     const bRect = bubble.getBoundingClientRect();
     const margin = 16;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
 
-    // 対象の上に置く / 上スペース不足なら下に
-    let top = rect.top - bRect.height - margin;
-    let arrow = 'bottom';
-    if (top < 60) {
-      top = rect.bottom + margin;
-      arrow = 'top';
+    let top, left, arrow = 'none';
+
+    // 配置方針を決定
+    let side = preferredSide;
+    if (side === 'auto') {
+      // 自動：上→下→左→右の順で空きを探す
+      if (rect.top - bRect.height - margin >= 60) side = 'top';
+      else if (rect.bottom + bRect.height + margin <= vh - 8) side = 'bottom';
+      else if (rect.left - bRect.width - margin >= 8) side = 'left';
+      else if (rect.right + bRect.width + margin <= vw - 8) side = 'right';
+      else side = 'top'; // フォールバック
     }
-    let left = rect.left + rect.width / 2 - bRect.width / 2;
-    left = Math.max(8, Math.min(left, window.innerWidth - bRect.width - 8));
+
+    if (side === 'top') {
+      top = rect.top - bRect.height - margin;
+      left = rect.left + rect.width / 2 - bRect.width / 2;
+      arrow = 'bottom';
+    } else if (side === 'bottom') {
+      top = rect.bottom + margin;
+      left = rect.left + rect.width / 2 - bRect.width / 2;
+      arrow = 'top';
+    } else if (side === 'left') {
+      top = rect.top + rect.height / 2 - bRect.height / 2;
+      left = rect.left - bRect.width - margin;
+      arrow = 'none'; // 左右配置時はアロー省略
+    } else if (side === 'right') {
+      top = rect.top + rect.height / 2 - bRect.height / 2;
+      left = rect.right + margin;
+      arrow = 'none';
+    }
+
+    // 画面端で調整
+    left = Math.max(8, Math.min(left, vw - bRect.width - 8));
+    top = Math.max(8, Math.min(top, vh - bRect.height - 8));
 
     bubble.style.top = `${top}px`;
     bubble.style.left = `${left}px`;
@@ -6895,7 +6941,7 @@ const TUTORIAL_STEPS = [
       setTutState({ field: [] });
     },
     highlight: '#sidebar',
-    bubblePosition: '#sidebar',
+    bubblePosition: { target: '#sidebar', side: 'left' },
     advance: { type: 'next-button', label: '次へ' },
   },
 
@@ -7017,9 +7063,11 @@ const TUTORIAL_STEPS = [
     advance: {
       type: 'final-button',
       buttons: [
-        { label: 'CPU弱と対戦', action: () => {
+        // CPU対戦ボタン：メニューには戻らずに直接CPU設定画面を開く
+        { label: 'CPU弱と対戦', returnToMenu: false, action: () => {
           if (typeof openCpuSetup === 'function') openCpuSetup();
         }},
+        // メニュー戻るボタン：returnToMenu: true (デフォルト)
         { label: 'メニューに戻る', secondary: true, action: () => {} },
       ],
     },
