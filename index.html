@@ -3579,13 +3579,18 @@ function updateRoleModalButtons() {
   const agariBtn = document.getElementById('roleModalAgariBtn');
   const koikoiBtn = document.getElementById('roleModalKoikoiBtn');
   
+  // こいこい中に確定済みの役の点 + こいこいボーナス
+  const existingRolePoints = calculateRolePoints(player.completedRoles);
+  const koikoiBonus = (player.koikoiCount || 0) * KOIKOI_BONUS_PER_COUNT;
+  const grandTotal = totalPoints + existingRolePoints + koikoiBonus;
+  
   const minPoints = getAgariMinPoints();
-  if (totalPoints < minPoints) {
-    agariBtn.textContent = `上がる (${totalPoints}点・${minPoints}点必要)`;
+  if (grandTotal < minPoints) {
+    agariBtn.textContent = `上がる (${grandTotal}点・${minPoints}点必要)`;
   } else {
-    agariBtn.textContent = `上がる (${totalPoints}点)`;
+    agariBtn.textContent = `上がる (${grandTotal}点)`;
   }
-  agariBtn.disabled = totalPoints < minPoints || selectedRoleIds.length === 0;
+  agariBtn.disabled = grandTotal < minPoints || selectedRoleIds.length === 0;
   koikoiBtn.disabled = selectedRoleIds.length === 0;
 }
 
@@ -4796,7 +4801,11 @@ function cpuOniSimulateOneTurn(simState, currentIdx, strategy) {
     return sum + e.currentPoints;
   }, 0);
   
-  const canAgari = totalPoints >= getAgariMinPoints();
+  // 累計（新規 + こいこい中の役 + こいこいボーナス）で判定
+  const existingRolePoints_sim = calculateRolePoints(me.completedRoles);
+  const koikoiBonus_sim = (me.koikoiCount || 0) * KOIKOI_BONUS_PER_COUNT;
+  const grandTotal_sim = totalPoints + existingRolePoints_sim + koikoiBonus_sim;
+  const canAgari = grandTotal_sim >= getAgariMinPoints();
   let willAgari;
   if (!canAgari) {
     willAgari = false;
@@ -5017,7 +5026,10 @@ function cpuOniEvaluateAction(cpu, oppIdx, candidate, trials) {
           if (e.mode === 'upgrade') return s + (e.currentPoints - e.role.points);
           return s + e.currentPoints;
         }, 0);
-        if (tp >= getAgariMinPoints()) {
+        const existingRP = calculateRolePoints(me.completedRoles);
+        const kBonus = (me.koikoiCount || 0) * KOIKOI_BONUS_PER_COUNT;
+        const grand = tp + existingRP + kBonus;
+        if (grand >= getAgariMinPoints()) {
           // 鬼は基本「上がれるなら上がる」を仮定（候補手評価用）
           for (const entry of newRoles) {
             if (entry.mode === 'upgrade') me.completedRoles.push(entry.role.id + '_full');
@@ -5427,8 +5439,11 @@ function cpuCheckRoles() {
     return sum + e.currentPoints;
   }, 0);
   
-  // 上がれるのは合計 getAgariMinPoints() 点以上
-  const canAgari = totalPoints >= getAgariMinPoints();
+  // 上がれるのは累計（新規 + こいこい中の役 + こいこいボーナス）が getAgariMinPoints() 点以上
+  const existingRolePoints = calculateRolePoints(cpu.completedRoles);
+  const koikoiBonus = (cpu.koikoiCount || 0) * KOIKOI_BONUS_PER_COUNT;
+  const grandTotal = totalPoints + existingRolePoints + koikoiBonus;
+  const canAgari = grandTotal >= getAgariMinPoints();
   
   let willAgari;
   if (!canAgari) {
