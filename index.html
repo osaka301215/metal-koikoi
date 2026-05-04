@@ -1084,11 +1084,13 @@ aside h2 {
   pointer-events: auto !important;
 }
 
-/* チュートリアル中、配置モーダルを「見せるだけ」モードに(全インタラクション無効) */
-body.tut-active.tut-modal-frozen #placeModal * {
+/* チュートリアル中、配置モーダルや役モーダルを「見せるだけ」モードに(全インタラクション無効) */
+body.tut-active.tut-modal-frozen #placeModal *,
+body.tut-active.tut-modal-frozen #roleModal * {
   pointer-events: none !important;
 }
-body.tut-active.tut-modal-frozen #placeModal {
+body.tut-active.tut-modal-frozen #placeModal,
+body.tut-active.tut-modal-frozen #roleModal {
   pointer-events: auto !important;  /* オーバーレイ自体はそのまま */
   z-index: 100 !important;  /* チュートリアル吹き出し(203)より下に */
 }
@@ -7253,13 +7255,13 @@ const TUTORIAL_STEPS = [
   {
     chapter: '第4章 上がりとこいこい',
     title: '上がる? こいこい?',
-    message: '役が成立すると、<strong>「上がる」か「こいこい」</strong>を選べます。<br><br>このターンで<strong>7点以上</strong>あれば上がれます(弱CPU戦のみ5点でOK)。<br><br>アルカリ土類金属は5点なので、<strong>このまま上がるには点数不足</strong>。「こいこい」して伸ばすか、点数を貯めるしかありません。',
+    message: '役が成立すると、<strong>「上がる」か「こいこい」</strong>を選べます。<br><br>このターンで<strong>7点以上</strong>あれば上がれます(弱CPU戦のみ5点)。<br><br>アルカリ土類金属は5点なので、<strong>このまま上がるには点数不足</strong>。<strong>「上がる」ボタンは押せず</strong>、「こいこい」して伸ばすしかありません。',
     setup: () => {
-      // Step 8b の盤面の続き：Ba取得・配置完了、Znは保留に
+      // Step 8b の盤面の続き：Ba取得・配置完了
       setTutState({
         self: {
           hand: [],
-          pending: [makeTutCard('Zn')],  // 配置先がないZnは保留
+          pending: [],
           slots: {
             'alkali_earth': {
               'Mg': makeTutCard('Mg'),
@@ -7267,16 +7269,47 @@ const TUTORIAL_STEPS = [
               'Ba': makeTutCard('Ba'),
             },
           },
-          completedRoles: ['alkali_earth'],
-          koikoi: true,
-          koikoiCount: 1,
-          score: 5,
+          completedRoles: [],  // showRoleModalで成立を表示するので、ここではまだ完了扱いにしない
+          koikoi: false,
+          koikoiCount: 0,
+          score: 0,
         },
         field: [makeTutCard('Na'), makeTutCard('Li')],
       });
+      // tut-modal-frozenクラスを付与
+      document.body.classList.add('tut-modal-frozen');
+      // 現在のステップindexを記録(setTimeout内で別ステップに進んでいたら何もしない用)
+      const myStepIndex = tutorial.currentStepIndex;
+      // render()後にroleModalを開く
+      setTimeout(() => {
+        if (!tutorial.active || tutorial.currentStepIndex !== myStepIndex) return;
+        try {
+          // ROLES から alkali_earth の役定義を取得
+          const role = ROLES.find(r => r.id === 'alkali_earth');
+          if (role) {
+            showRoleModal([
+              { role: role, mode: 'normal', currentPoints: role.points },
+            ]);
+            console.log('[tutorial Step 9] roleModal opened');
+          }
+        } catch (e) {
+          console.warn('[tutorial Step 9] showRoleModal failed:', e);
+        }
+        tutorial.reposition();
+      }, 100);
     },
-    bubblePosition: 'center',
+    // モーダルの右側に吹き出しを表示
+    bubblePosition: {
+      target: '#roleModal .modal',
+      side: 'right',
+    },
     advance: { type: 'next-button', label: '次へ' },
+    onAdvance: () => {
+      // 次に進むときにモーダルを閉じて凍結解除
+      const modal = document.getElementById('roleModal');
+      if (modal) modal.classList.remove('active');
+      document.body.classList.remove('tut-modal-frozen');
+    },
   },
 
   // ---------- Step 10: こいこいの戦略 ----------
