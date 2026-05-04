@@ -1247,10 +1247,10 @@ aside h2 {
       <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--indigo); border-color: var(--indigo);" onclick="startCpuGame('normal')">
         並 と対戦
       </button>
-      <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--vermilion); border-color: var(--vermilion);" onclick="startCpuGame('oni')">
+      <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--vermilion); border-color: var(--vermilion);" onclick="startCpuGame('strong')">
         強 と対戦
       </button>
-      <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--bg-mid); border-color: var(--gold-bright); color: var(--gold-bright);" onclick="startCpuGame('strong')">
+      <button class="primary" style="padding: 14px; font-size: 1rem; letter-spacing: 0.2em; background: var(--bg-mid); border-color: var(--gold-bright); color: var(--gold-bright);" onclick="startCpuGame('oni')">
         鬼 と対戦
       </button>
     </div>
@@ -1689,8 +1689,8 @@ let playerNames = ['一の人', '二の人'];
 const CPU_DIFFICULTY_LABEL = {
   weak: 'CPU(弱)',
   normal: 'CPU(並)',
-  strong: 'CPU(鬼)',
-  oni: 'CPU(強)',
+  strong: 'CPU(強)',
+  oni: 'CPU(鬼)',
 };
 
 // ラウンド設定
@@ -5120,7 +5120,7 @@ function cpuOniPickHandCard(cpu, hand, field) {
     }
   }
   
-  const _msg = `${playerNames[1]}（強の思考）: ${evaluations.map(e => `${e.symbol}=${e.avg.toFixed(1)}`).join(', ')} → ${bestCard.symbol}`;
+  const _msg = `${playerNames[1]}（鬼の思考）: ${evaluations.map(e => `${e.symbol}=${e.avg.toFixed(1)}`).join(', ')} → ${bestCard.symbol}`;
   log(_msg);
   console.log('[CPU思考]', _msg);
   
@@ -5176,7 +5176,7 @@ function cpuOniDecideKoikoi(cpu, opp, totalPoints, newRoles) {
   const cumDiff = myCum - oppCum;
   const roundLabel = isFinalRound ? '最終R' : `R${currentRound}/${totalRounds}`;
   const cumLabel = `累計${myCum}vs${oppCum}(${cumDiff >= 0 ? '+' : ''}${cumDiff})`;
-  const _msg2 = `${playerNames[1]}（強の思考・${roundLabel}・${cumLabel}）: 上がり=${agariAvg.toFixed(1)}, こいこい=${koikoiAvgWithBonus.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`;
+  const _msg2 = `${playerNames[1]}（鬼の思考・${roundLabel}・${cumLabel}）: 上がり=${agariAvg.toFixed(1)}, こいこい=${koikoiAvgWithBonus.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`;
   log(_msg2);
   console.log('[CPU思考]', _msg2);
   
@@ -5479,7 +5479,7 @@ function cpuCheckRoles() {
       willAgari = baseDecisionAgari;
     }
     
-    const _msg3 = `${playerNames[1]}（鬼の思考）: 期待追加点≈${expectedBonus.toFixed(1)}, こいこい価値≈${koikoiGain.toFixed(1)}, リスク≈${riskFactor.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`;
+    const _msg3 = `${playerNames[1]}（強の思考）: 期待追加点≈${expectedBonus.toFixed(1)}, こいこい価値≈${koikoiGain.toFixed(1)}, リスク≈${riskFactor.toFixed(1)} → ${willAgari ? '上がり' : 'こいこい'}`;
     log(_msg3);
     console.log('[CPU思考]', _msg3);
   } else if (cpuDifficulty === 'normal') {
