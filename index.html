@@ -6875,7 +6875,9 @@ const TUTORIAL_STEPS = [
         self: { hand: [tutCards.fe] },
       });
     },
-    highlight: '#selfHand',
+    extraGlow: [
+      () => document.querySelector(`[data-card-id="${tutCards.fe.id}"]`),
+    ],
     bubblePosition: '#selfHand',
     advance: { type: 'next-button', label: 'なるほど' },
   },
@@ -6896,7 +6898,9 @@ const TUTORIAL_STEPS = [
         deck: [makeTutCard('Mg')],
       });
     },
-    highlight: () => document.querySelector(`[data-card-id="${tutCards.fe.id}"]`),
+    extraGlow: [
+      () => document.querySelector(`[data-card-id="${tutCards.fe.id}"]`),
+    ],
     bubblePosition: '#selfHand',
     advance: {
       type: 'forced-tap',
@@ -7011,19 +7015,19 @@ const TUTORIAL_STEPS = [
     advance: { type: 'next-button', label: '次へ' },
   },
 
-  // ---------- Step 8: 役の成立 - 手札Baをタップ ----------
+  // ---------- Step 8: 役の成立 - 手札の Zn をタップ ----------
   {
     chapter: '第3章 役と配置',
     title: '役を成立させる',
-    message: 'いま<strong>アルカリ土類金属(Mg+Ca+Ba)</strong>の役がリーチ。<br>Mg と Ca はもう取得済みで、あと Ba を取れば成立です。<br><br>手札の <strong>Ba</strong> をタップしてください。',
+    message: 'いま<strong>アルカリ土類金属(Mg+Ca+Ba)</strong>の役がリーチ。<br>Mg と Ca はもう取得済みで、あと <strong>Ba</strong> を取れば成立です。<br><br>手札の <strong>Zn(+2典型)</strong> で場の <strong>Ba(+2典型)</strong> を取りに行きます。<br>まず手札の <strong>Zn</strong> をタップしてください。',
     setup: () => {
-      tutCards.baInHand = makeTutCard('Ba');
+      tutCards.znInHand = makeTutCard('Zn');
       tutCards.baOnField = makeTutCard('Ba');
       const mgPlaced = makeTutCard('Mg');
       const caPlaced = makeTutCard('Ca');
       setTutState({
         self: {
-          hand: [tutCards.baInHand],
+          hand: [tutCards.znInHand],
           pending: [],
           slots: {
             'alkali_earth': { 'Mg': mgPlaced, 'Ca': caPlaced, 'Ba': null },
@@ -7033,11 +7037,13 @@ const TUTORIAL_STEPS = [
         deck: [makeTutCard('K')],
       });
     },
-    highlight: () => document.querySelector(`[data-card-id="${tutCards.baInHand.id}"]`),
+    extraGlow: [
+      () => document.querySelector(`[data-card-id="${tutCards.znInHand.id}"]`),
+    ],
     bubblePosition: '#selfHand',
     advance: {
       type: 'forced-tap',
-      get cardId() { return tutCards.baInHand.id; },
+      get cardId() { return tutCards.znInHand.id; },
       delay: 200,
     },
   },
@@ -7051,11 +7057,11 @@ const TUTORIAL_STEPS = [
       // Step 8 のカード参照を保持したまま、phaseのみmatch_handに
       const mgPlaced = makeTutCard('Mg');
       const caPlaced = makeTutCard('Ca');
-      tutCards.baInHand = makeTutCard('Ba');
+      tutCards.znInHand = makeTutCard('Zn');
       tutCards.baOnField = makeTutCard('Ba');
       setTutState({
         self: {
-          hand: [tutCards.baInHand],
+          hand: [tutCards.znInHand],
           pending: [],
           slots: {
             'alkali_earth': { 'Mg': mgPlaced, 'Ca': caPlaced, 'Ba': null },
@@ -7065,7 +7071,7 @@ const TUTORIAL_STEPS = [
         deck: [makeTutCard('K')],
         phase: 'match_hand',
       });
-      state.selectedHandCard = tutCards.baInHand;
+      state.selectedHandCard = tutCards.znInHand;
     },
     highlight: () => document.querySelector(`[data-card-id="${tutCards.baOnField.id}"]`),
     bubblePosition: '#fieldCards',
@@ -7082,10 +7088,11 @@ const TUTORIAL_STEPS = [
     title: '上がる? こいこい?',
     message: '役が成立すると、<strong>「上がる」か「こいこい」</strong>を選べます。<br><br>このターンで<strong>7点以上</strong>あれば上がれます(弱CPU戦のみ5点でOK)。<br><br>アルカリ土類金属は5点なので、<strong>このまま上がるには点数不足</strong>。「こいこい」して伸ばすか、点数を貯めるしかありません。',
     setup: () => {
+      // Step 8b の盤面の続き：Ba取得・配置完了、Znは保留に
       setTutState({
         self: {
           hand: [],
-          pending: [],
+          pending: [makeTutCard('Zn')],  // 配置先がないZnは保留
           slots: {
             'alkali_earth': {
               'Mg': makeTutCard('Mg'),
@@ -7098,7 +7105,7 @@ const TUTORIAL_STEPS = [
           koikoiCount: 1,
           score: 5,
         },
-        field: [],
+        field: [makeTutCard('Na'), makeTutCard('Li')],
       });
     },
     bubblePosition: 'center',
@@ -7111,7 +7118,25 @@ const TUTORIAL_STEPS = [
     title: 'こいこいの戦略',
     message: 'こいこい中は<strong>新しい役を作ると +3点ボーナス</strong>。<br>ただし相手も役を作って上がると<strong>大量失点</strong>します。<br><br>判断のヒント:<br>① 手札と山札に伸ばせる札がある→こいこい有利<br>② 相手が役にリーチ→上がるが安全<br>③ 点差で攻める/守るを決める',
     setup: () => {
-      setTutState({ field: [] });
+      // Step 9 の盤面を維持
+      setTutState({
+        self: {
+          hand: [],
+          pending: [makeTutCard('Zn')],
+          slots: {
+            'alkali_earth': {
+              'Mg': makeTutCard('Mg'),
+              'Ca': makeTutCard('Ca'),
+              'Ba': makeTutCard('Ba'),
+            },
+          },
+          completedRoles: ['alkali_earth'],
+          koikoi: true,
+          koikoiCount: 1,
+          score: 5,
+        },
+        field: [makeTutCard('Na'), makeTutCard('Li')],
+      });
     },
     bubblePosition: 'center',
     advance: { type: 'next-button', label: '次へ' },
@@ -7123,7 +7148,25 @@ const TUTORIAL_STEPS = [
     title: 'お疲れさま!',
     message: 'これで基本はバッチリです。<br>1ゲームは<strong>1〜7ラウンドの累計得点</strong>で総合勝者が決まります(設定で選べます)。<br><br>まずは<strong>CPU「弱」</strong>から始めてみましょう。',
     setup: () => {
-      setTutState({ field: [] });
+      // 完了画面でも盤面を維持
+      setTutState({
+        self: {
+          hand: [],
+          pending: [makeTutCard('Zn')],
+          slots: {
+            'alkali_earth': {
+              'Mg': makeTutCard('Mg'),
+              'Ca': makeTutCard('Ca'),
+              'Ba': makeTutCard('Ba'),
+            },
+          },
+          completedRoles: ['alkali_earth'],
+          koikoi: true,
+          koikoiCount: 1,
+          score: 5,
+        },
+        field: [makeTutCard('Na'), makeTutCard('Li')],
+      });
     },
     bubblePosition: 'center',
     advance: {
