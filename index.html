@@ -713,14 +713,23 @@ aside h2 {
 }
 .ranking-row {
   display: grid;
-  grid-template-columns: 36px 1fr auto;
+  grid-template-columns: 32px auto 1fr auto auto;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 8px 10px;
   background: rgba(26, 20, 16, 0.4);
   border-radius: 4px;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+}
+.ranking-row.clickable {
+  cursor: pointer;
+  transition: background 0.15s, border 0.15s;
+  border: 1px solid transparent;
+}
+.ranking-row.clickable:hover {
+  background: rgba(201, 169, 97, 0.15);
+  border-color: rgba(201, 169, 97, 0.4);
 }
 .ranking-rank {
   font-weight: 700;
@@ -732,9 +741,61 @@ aside h2 {
   color: var(--bg-card);
   letter-spacing: 0.15em;
   font-weight: 500;
+  white-space: nowrap;
 }
 .ranking-value {
   color: var(--gold-bright);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-align: right;
+  white-space: nowrap;
+}
+.ranking-date {
+  color: var(--gold);
+  opacity: 0.6;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.ranking-detail-icon {
+  color: var(--gold);
+  opacity: 0.5;
+  font-size: 0.85rem;
+  margin-left: 2px;
+}
+.ranking-row.clickable:hover .ranking-detail-icon {
+  opacity: 1;
+  color: var(--gold-bright);
+}
+
+/* 詳細モーダル */
+.ranking-detail-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ranking-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(26, 20, 16, 0.5);
+  border: 1px solid rgba(201, 169, 97, 0.2);
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+.ranking-detail-row.koikoi-bonus {
+  background: rgba(184, 74, 62, 0.12);
+  border-color: rgba(184, 74, 62, 0.4);
+}
+.ranking-detail-label {
+  color: var(--bg-card);
+  font-family: 'Shippori Mincho', serif;
+  letter-spacing: 0.1em;
+}
+.ranking-detail-pts {
+  color: var(--gold-bright);
+  font-family: 'JetBrains Mono', monospace;
   font-weight: 700;
   letter-spacing: 0.05em;
 }
@@ -1586,6 +1647,22 @@ body.tut-active .action-bar > * {
   </div>
 </div>
 
+<!-- ランキング詳細モーダル -->
+<div class="modal-overlay" id="rankingDetailOverlay" style="background: rgba(26, 20, 16, 0.92); z-index: 1100;">
+  <div class="modal" style="max-width: 460px; width: 92%; padding: 24px 22px;">
+    <div style="font-family: 'Shippori Mincho', serif; font-size: 1.2rem; color: var(--gold-bright); letter-spacing: 0.3em; text-align: center; margin-bottom: 4px; font-weight: 700;">
+      内訳
+    </div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; color: var(--gold); letter-spacing: 0.3em; opacity: 0.7; text-align: center; margin-bottom: 18px;">
+      SCORE BREAKDOWN
+    </div>
+    <div id="rankingDetailBody"></div>
+    <div style="text-align: center; margin-top: 18px;">
+      <button onclick="closeRankingDetail()" style="font-size: 0.85rem;">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <!-- ランキング画面 -->
 <div class="modal-overlay" id="rankingScreen" style="background: var(--bg-deep);">
   <div style="max-width: 720px; width: 95%; max-height: 90vh; overflow-y: auto;">
@@ -2235,6 +2312,10 @@ let cumulativeScores = [0, 0];
 // 例: [10, 0, 17, 0, 0] = ラウンド2で10点、ラウンド4で17点
 let myRoundScores = [];
 
+// ランキング用：各ラウンドの内訳（役ごと点数+こいこいボーナス）
+// 例: [{score:10, breakdown:[{name:'ステンレス',points:5},...], koikoiCount:1, koikoiBonus:3, roundNumber:2}, ...]
+let myRoundDetails = [];
+
 // 上級者モード（役の元素記号を伏せる、覚え推奨）
 let expertMode = false;
 
@@ -2388,8 +2469,16 @@ function maybeOfferRankingRegistration() {
   const totalScore = cumulativeScores[myIdx];
   const rounds = totalRounds;
   const average = totalScore / rounds;
-  // ラウンド内最高得点
-  const maxRound = myRoundScores.length > 0 ? Math.max(...myRoundScores, 0) : 0;
+  // ラウンド内最高得点 + その内訳
+  let maxRound = 0;
+  let maxRoundDetail = null;
+  for (let i = 0; i < myRoundDetails.length; i++) {
+    const d = myRoundDetails[i];
+    if (d.score > maxRound) {
+      maxRound = d.score;
+      maxRoundDetail = d;
+    }
+  }
   
   // 既存のendModalの上に重ねるので、少し遅延させる
   setTimeout(() => {
@@ -2399,7 +2488,8 @@ function maybeOfferRankingRegistration() {
       average: average,        // 勝利時平均 = 総得点 / ラウンド数
       maxRound: maxRound,
       totalScore: totalScore,
-      rounds: rounds
+      rounds: rounds,
+      detail: maxRoundDetail   // 最高点ラウンドの内訳（役ごと + こいこい）
     });
   }, 600);
 }
@@ -2499,7 +2589,7 @@ async function submitRankingRecord(record) {
   
   try {
     const ref = fbDb.ref('rankings/' + record.difficulty);
-    await ref.push({
+    const payload = {
       initials: v.value,
       score: record.score,         // ラウンド内最高得点
       average: record.average,     // 平均（小数）
@@ -2507,7 +2597,17 @@ async function submitRankingRecord(record) {
       totalScore: record.totalScore,
       rounds: record.rounds,
       ts: firebase.database.ServerValue.TIMESTAMP
-    });
+    };
+    // 最高点ラウンドの内訳を含める（あれば）
+    if (record.detail) {
+      payload.detail = {
+        breakdown: record.detail.breakdown || [],
+        koikoiCount: record.detail.koikoiCount || 0,
+        koikoiBonus: record.detail.koikoiBonus || 0,
+        roundNumber: record.detail.roundNumber || 0
+      };
+    }
+    await ref.push(payload);
     if (btn) btn.textContent = '登録完了';
     setTimeout(() => {
       closeRankingRegisterDialog();
@@ -2580,6 +2680,10 @@ function renderRankingList(records, kind) {
   if (records.length === 0) {
     return '<div style="text-align:center; padding: 24px; opacity: 0.6; font-size: 0.85rem;">まだ記録がありません</div>';
   }
+  // 詳細表示用にキャッシュ（onclick から index で参照する）
+  const cacheKey = (kind === 'score') ? '__scoreRecords' : '__avgRecords';
+  window[cacheKey] = records;
+  
   let html = '<div class="ranking-list-rows">';
   records.forEach((r, i) => {
     const rank = i + 1;
@@ -2589,15 +2693,95 @@ function renderRankingList(records, kind) {
     const rankColor = rank === 1 ? 'var(--gold-bright)' :
                       rank === 2 ? '#c0c0c0' :
                       rank === 3 ? '#cd7f32' : 'var(--gold)';
+    const dateStr = formatRankingDate(r.ts);
+    
+    // 1試合ハイスコアかつ内訳ありの場合はクリック可能に
+    const hasDetail = (kind === 'score') && r.detail && r.detail.breakdown;
+    const clickable = hasDetail ? ' clickable' : '';
+    const onclickAttr = hasDetail ? ` onclick="openRankingDetail('${cacheKey}', ${i})"` : '';
+    
     html += 
-      '<div class="ranking-row">' +
+      `<div class="ranking-row${clickable}"${onclickAttr}>` +
       `<span class="ranking-rank" style="color: ${rankColor};">${rank}</span>` +
       `<span class="ranking-initials">${escapeHtml(r.initials || '?.?')}</span>` +
       `<span class="ranking-value">${value}</span>` +
+      `<span class="ranking-date">${dateStr}</span>` +
+      (hasDetail ? '<span class="ranking-detail-icon" title="クリックで詳細">▸</span>' : '') +
       '</div>';
   });
   html += '</div>';
   return html;
+}
+
+// タイムスタンプ → "YYYY/MM/DD"
+function formatRankingDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}/${m}/${day}`;
+}
+
+// ランキング詳細モーダルを開く
+function openRankingDetail(cacheKey, idx) {
+  const list = window[cacheKey];
+  if (!Array.isArray(list)) return;
+  const r = list[idx];
+  if (!r || !r.detail) return;
+  
+  const overlay = document.getElementById('rankingDetailOverlay');
+  const body = document.getElementById('rankingDetailBody');
+  if (!overlay || !body) return;
+  
+  const dateStr = formatRankingDate(r.ts);
+  const det = r.detail;
+  
+  let html = '';
+  html += `<div style="text-align:center; margin-bottom: 16px;">`;
+  html += `<div style="font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; letter-spacing: 0.3em; color: var(--gold-bright); font-weight: 700;">${escapeHtml(r.initials || '?.?')}</div>`;
+  html += `<div style="font-size: 0.75rem; color: var(--gold); opacity: 0.7; letter-spacing: 0.1em; margin-top: 4px;">${dateStr}</div>`;
+  html += `</div>`;
+  
+  html += `<div style="background: rgba(201, 169, 97, 0.08); border: 1px solid rgba(201, 169, 97, 0.3); border-radius: 6px; padding: 14px; margin-bottom: 16px;">`;
+  html += `<div style="text-align:center; font-size: 0.8rem; color: var(--gold); letter-spacing: 0.15em; margin-bottom: 6px;">`;
+  if (det.roundNumber) {
+    html += `ラウンド${det.roundNumber}・`;
+  }
+  html += `合計 <span style="color: var(--gold-bright); font-size: 1.2rem; font-weight: 700;">${r.score || 0}</span> 点`;
+  html += `</div>`;
+  html += `</div>`;
+  
+  html += `<div style="font-size: 0.75rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 8px;">内訳</div>`;
+  html += `<div class="ranking-detail-rows">`;
+  
+  if (Array.isArray(det.breakdown) && det.breakdown.length > 0) {
+    det.breakdown.forEach(b => {
+      html += `<div class="ranking-detail-row">`;
+      html += `<span class="ranking-detail-label">${escapeHtml(b.name || '?')}</span>`;
+      html += `<span class="ranking-detail-pts">+${b.points || 0} 点</span>`;
+      html += `</div>`;
+    });
+  } else {
+    html += `<div style="opacity: 0.6; font-size: 0.85rem; padding: 8px;">役の記録なし</div>`;
+  }
+  
+  if (det.koikoiCount && det.koikoiCount > 0) {
+    html += `<div class="ranking-detail-row koikoi-bonus">`;
+    html += `<span class="ranking-detail-label">こいこい宣言ボーナス（${det.koikoiCount}回）</span>`;
+    html += `<span class="ranking-detail-pts">+${det.koikoiBonus || 0} 点</span>`;
+    html += `</div>`;
+  }
+  
+  html += `</div>`;
+  
+  body.innerHTML = html;
+  overlay.classList.add('active');
+}
+
+function closeRankingDetail() {
+  document.getElementById('rankingDetailOverlay').classList.remove('active');
 }
 
 function escapeHtml(s) {
@@ -3098,6 +3282,7 @@ function startOnlineGame(role, hostName, guestName) {
   currentRound = 1;
   cumulativeScores = [0, 0];
   myRoundScores = [];
+  myRoundDetails = [];
   lastRoundWinner = null;
   
   // すべてのメニュー画面を閉じる
@@ -3143,6 +3328,7 @@ function startGame(mode) {
   currentRound = 1;
   cumulativeScores = [0, 0];
   myRoundScores = [];
+  myRoundDetails = [];
   lastRoundWinner = null;
   
   // メニュー系画面をすべて閉じる
@@ -3248,6 +3434,7 @@ function startRematchListener() {
         currentRound = 1;
         cumulativeScores = [0, 0];
         myRoundScores = [];
+        myRoundDetails = [];
         lastRoundWinner = null;
         log('ホストの準備を待っています...');
         render();
@@ -3332,6 +3519,7 @@ async function startRematchGame() {
   currentRound = 1;
   cumulativeScores = [0, 0];
   myRoundScores = [];
+  myRoundDetails = [];
   lastRoundWinner = null;
   
   // rematch ノードを完全削除（次回再戦時に備える）
@@ -3410,6 +3598,7 @@ function backToMenu() {
   document.getElementById('rematchSetupScreen').classList.remove('active');
   document.getElementById('rankingScreen').classList.remove('active');
   document.getElementById('rankingRegisterOverlay').classList.remove('active');
+  document.getElementById('rankingDetailOverlay').classList.remove('active');
   document.getElementById('startScreen').classList.add('active');
   // メニューに戻ったらBGMを冒頭から再開
   restartBgm();
@@ -3440,6 +3629,7 @@ function restartCurrentMatch() {
   currentRound = 1;
   cumulativeScores = [0, 0];
   myRoundScores = [];
+  myRoundDetails = [];
   lastRoundWinner = null;
   restartBgm();
   newGame();
@@ -4698,7 +4888,38 @@ function finishCurrentRound(cause, agariInfo) {
   
   // ランキング用：自分のラウンド得点を履歴に積む
   // CPU戦は myPlayerIndex=0、PvPは0、オンラインは0/1
-  myRoundScores.push(state.players[myPlayerIndex].score || 0);
+  const me = state.players[myPlayerIndex];
+  const myScore = me.score || 0;
+  myRoundScores.push(myScore);
+  
+  // ランキング用：そのラウンドの内訳（役ごと点数 + こいこいボーナス）を記録
+  const breakdown = [];
+  if (me.completedRoles && me.completedRoles.length > 0) {
+    me.completedRoles.forEach(id => {
+      if (id.endsWith('_full')) {
+        const baseId = id.replace(/_full$/, '');
+        const role = ROLE_BY_ID[baseId];
+        if (role) {
+          breakdown.push({ name: role.name + '（完全）', points: role.completePoints });
+        }
+      } else {
+        const role = ROLE_BY_ID[id];
+        if (!role) return;
+        // _full と同時に存在する場合、baseはスキップ（_fullに含まれてる）
+        if (role.extensible && me.completedRoles.includes(id + '_full')) return;
+        breakdown.push({ name: role.name, points: role.points });
+      }
+    });
+  }
+  const koikoiCount = me.koikoiCount || 0;
+  const koikoiBonus = koikoiCount * KOIKOI_BONUS_PER_COUNT;
+  myRoundDetails.push({
+    score: myScore,
+    breakdown: breakdown,
+    koikoiCount: koikoiCount,
+    koikoiBonus: koikoiBonus,
+    roundNumber: currentRound
+  });
   
   // 最終ラウンドかチェック
   const isFinalRound = currentRound >= totalRounds;
