@@ -2007,7 +2007,7 @@ body.tut-active .action-bar > * {
 
     <div class="controls">
       <button onclick="backToMenu()">メニューに戻る</button>
-      <button onclick="newGame()">新しいゲーム</button>
+      <button onclick="restartCurrentMatch()">新しいゲーム</button>
       <button onclick="toggleRoleList()">役一覧</button>
       <button onclick="toggleHelp()">遊び方</button>
       <button onclick="toggleBgm()" id="bgmGameBtn" data-bgm-btn>BGM：OFF</button>
@@ -2360,6 +2360,9 @@ function maybeOfferRankingRegistration() {
   // CPU戦かつ強or鬼以外は対象外
   if (gameMode !== 'cpu') return;
   if (cpuDifficulty !== 'strong' && cpuDifficulty !== 'oni') return;
+  // 短いラウンド数（4以下）はランキング対象外
+  // 少ないラウンドで稼ぎやすくなるため公平性確保
+  if (totalRounds < 5) return;
   // 自分が勝っているか（同点・負けは登録しない）
   const myIdx = myPlayerIndex;
   const oppIdx = 1 - myIdx;
@@ -3322,6 +3325,8 @@ async function startRematchGame() {
     } catch (e) { /* noop */ }
   }, 1000);
   
+  // 再戦時はBGMを冒頭から再開
+  restartBgm();
   newGame();
 }
 
@@ -3412,6 +3417,16 @@ let ceremonyTimers = [];
 function clearCeremonyTimers() {
   ceremonyTimers.forEach(t => clearTimeout(t));
   ceremonyTimers = [];
+}
+
+// 「新しいゲーム」ボタン用ラッパー（試合をリセットしてBGMも冒頭から）
+function restartCurrentMatch() {
+  currentRound = 1;
+  cumulativeScores = [0, 0];
+  myRoundScores = [];
+  lastRoundWinner = null;
+  restartBgm();
+  newGame();
 }
 
 function newGame() {
@@ -4749,6 +4764,9 @@ function showRoundEndScreen(title, subtitle, isFinalRound) {
   modal.querySelectorAll('button').forEach(b => b.remove());
   
   if (isFinalRound) {
+    // 試合終了時はBGMを停止（メニュー戻り or 再戦時に自動で再開される）
+    pauseBgm();
+    
     if (gameMode === 'online') {
       // オンライン対戦：再戦ボタンとメニュー戻るボタンの2つ
       const rematchBtn = document.createElement('button');
