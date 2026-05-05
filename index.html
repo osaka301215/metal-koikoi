@@ -570,6 +570,7 @@ aside h2 {
 .slot-name {
   font-weight: 600;
   color: var(--gold-bright);
+  flex: 1 1 0;
   min-width: 0;
   font-size: 0.7rem;
   white-space: nowrap;
@@ -580,11 +581,12 @@ aside h2 {
 .slot-mini-cards {
   display: flex;
   gap: 2px;
-  flex: 1;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
 }
 
 .slot-mini-card {
+  flex: 0 0 auto;
   width: 20px;
   height: 26px;
   background: var(--bg-card);
@@ -1653,6 +1655,13 @@ body.tut-active .action-bar > * {
 <!-- BGM -->
 <audio id="bgmAudio" loop preload="auto" src="koikoibgm.mp3"></audio>
 
+<!-- SE（効果音）-->
+<!-- 勝敗ジングル -->
+<audio id="seWin" preload="auto" src="win.mp3"></audio>
+<audio id="seLose" preload="auto" src="lose.mp3"></audio>
+<!-- ↑ 将来追加するゲーム中SE（カード取り音など）も同じ要領で <audio id="seXxx" ...> を追加し、
+     playSE('xxx') で呼び出せます。 -->
+
 <!-- ランキング登録ダイアログ -->
 <div class="modal-overlay" id="rankingRegisterOverlay" style="background: rgba(26, 20, 16, 0.92); z-index: 1000;">
   <div class="modal" style="max-width: 440px; width: 90%; padding: 28px 24px;">
@@ -1773,9 +1782,13 @@ body.tut-active .action-bar > * {
         <span>外観：和風</span>
         <div class="expert-toggle-switch" id="themeSwitch"></div>
       </div>
-      <div class="expert-toggle-row" onclick="toggleBgm()" style="margin-top: 0; justify-content: space-between; padding: 0 8px;">
+      <div class="expert-toggle-row" onclick="toggleBgm()" style="margin-top: 0; margin-bottom: 10px; justify-content: space-between; padding: 0 8px;">
         <span>BGM</span>
         <div class="expert-toggle-switch bgm-switch" id="bgmSwitch"></div>
+      </div>
+      <div class="expert-toggle-row" onclick="toggleSe()" style="margin-top: 0; justify-content: space-between; padding: 0 8px;">
+        <span>効果音（SE）</span>
+        <div class="expert-toggle-switch se-switch" id="seSwitch"></div>
       </div>
     </div>
   </div>
@@ -2136,6 +2149,7 @@ body.tut-active .action-bar > * {
       <button onclick="toggleRoleList()">役一覧</button>
       <button onclick="toggleHelp()">遊び方</button>
       <button onclick="toggleBgm()" id="bgmGameBtn" data-bgm-btn>BGM：OFF</button>
+      <button onclick="toggleSe()" id="seGameBtn" data-se-btn>SE：ON</button>
       <button onclick="switchViewpoint()" id="viewpointBtn" style="border-color: var(--vermilion); color: var(--vermilion); display: none;">視点切替（テスト用）</button>
     </div>
   </main>
@@ -2372,11 +2386,16 @@ function toggleExpertMode(switchId) {
 const SETTINGS_KEY = 'metalKoikoiSettings';
 
 function loadSettings() {
+  const defaults = { theme: 'default', bgm: false, se: true };
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // 旧バージョンの保存設定にseキーが無い場合のためにマージ
+      return Object.assign({}, defaults, parsed);
+    }
   } catch (e) {}
-  return { theme: 'default', bgm: false };
+  return defaults;
 }
 
 function saveSettings(s) {
@@ -2450,11 +2469,65 @@ function toggleBgm() {
   applyBgm();
 }
 
+// ===== SE（効果音）=====
+// 将来 'capture' などのSEを追加する場合は <audio id="seCapture" ...> を追加し、
+// ここの SE_AUDIO_IDS にキーとIDを追記するだけで playSE('capture') で鳴らせる。
+const SE_AUDIO_IDS = {
+  win:  'seWin',
+  lose: 'seLose',
+};
+
+function syncSeSwitches() {
+  document.querySelectorAll('.se-switch').forEach(sw => {
+    sw.classList.toggle('on', userSettings.se);
+  });
+  document.querySelectorAll('[data-se-btn]').forEach(btn => {
+    btn.textContent = userSettings.se ? 'SE：ON' : 'SE：OFF';
+    btn.style.color = userSettings.se ? 'var(--gold-bright)' : '';
+    btn.style.borderColor = userSettings.se ? 'var(--gold-bright)' : '';
+  });
+}
+
+// 効果音を1回再生する。設定がOFFなら何もしない。
+// name: SE_AUDIO_IDS のキー名（'win', 'lose' など）
+function playSE(name) {
+  if (!userSettings.se) return;
+  const id = SE_AUDIO_IDS[name];
+  if (!id) return;
+  const audio = document.getElementById(id);
+  if (!audio) return;
+  try {
+    audio.currentTime = 0;
+  } catch (e) {}
+  audio.volume = 0.7;
+  const p = audio.play();
+  if (p && p.catch) p.catch(() => {/* 自動再生ブロック等は無視 */});
+}
+
+// 全SEを停止（メニュー戻り時などに使用）
+function stopAllSE() {
+  Object.values(SE_AUDIO_IDS).forEach(id => {
+    const a = document.getElementById(id);
+    if (a) {
+      try { a.pause(); a.currentTime = 0; } catch (e) {}
+    }
+  });
+}
+
+function toggleSe() {
+  userSettings.se = !userSettings.se;
+  saveSettings(userSettings);
+  syncSeSwitches();
+  // OFFにした瞬間に鳴っているSEを止める
+  if (!userSettings.se) stopAllSE();
+}
+
 // 初期適用（DOM構築後）
 window.addEventListener('DOMContentLoaded', () => {
   applyTheme();
   // BGMはスイッチ表示のみ反映、再生は最初のユーザー操作後に行う
   syncBgmSwitches();
+  syncSeSwitches();
   if (userSettings.bgm) {
     const tryPlay = () => {
       applyBgm();
@@ -3571,6 +3644,7 @@ async function startRematchGame() {
   }, 1000);
   
   // 再戦時はBGMを冒頭から再開
+  stopAllSE();
   restartBgm();
   newGame();
 }
@@ -3643,6 +3717,8 @@ function backToMenu() {
   document.getElementById('startScreen').classList.add('active');
   // メニューに戻ったらBGMを冒頭から再開
   restartBgm();
+  // 鳴っているSE（勝敗ジングル等）も止める
+  stopAllSE();
 }
 
 // 前ラウンドの勝者（先攻決定用）
@@ -3672,6 +3748,7 @@ function restartCurrentMatch() {
   myRoundScores = [];
   myRoundDetails = [];
   lastRoundWinner = null;
+  stopAllSE();
   restartBgm();
   newGame();
 }
@@ -5076,6 +5153,17 @@ function showRoundEndScreen(title, subtitle, isFinalRound) {
   if (isFinalRound) {
     // 試合終了時はBGMを停止（メニュー戻り or 再戦時に自動で再開される）
     pauseBgm();
+    
+    // 勝敗ジングル：自分（myPlayerIndex）視点で判定
+    // PvPローカル対戦は myPlayerIndex=0 固定だが、その場合 player0 視点で勝敗判定する。
+    // 引き分けは無音（win/lose どちらも誤情報になるため）。
+    const myCum = cumulativeScores[myPlayerIndex];
+    const oppCum = cumulativeScores[1 - myPlayerIndex];
+    if (myCum > oppCum) {
+      playSE('win');
+    } else if (myCum < oppCum) {
+      playSE('lose');
+    }
     
     if (gameMode === 'online') {
       // オンライン対戦：再戦ボタンとメニュー戻るボタンの2つ
