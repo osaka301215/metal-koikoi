@@ -869,6 +869,19 @@ aside h2 {
   border-color: var(--vermilion);
 }
 
+/* 役に組み込む選択肢が選ばれている時は青系（藍色）にして、保留(朱)と区別する */
+.modal-role.role-option.selected {
+  background: var(--indigo);
+  border-color: var(--indigo);
+  color: var(--bg-card);
+}
+.modal-role.role-option.selected .role-name,
+.modal-role.role-option.selected .role-points,
+.modal-role.role-option.selected .role-formula,
+.modal-role.role-option.selected .role-progress {
+  color: var(--bg-card);
+}
+
 .modal-role.selected .role-name,
 .modal-role.selected .role-points,
 .modal-role.selected .role-formula,
@@ -2090,7 +2103,7 @@ const ELEMENTS = {
 // ============================================================
 // 役の定義
 // ============================================================
-// extensible: 炎色反応のみ true（3つで成立、6つまで拡張可、最大時に得点アップ）
+// extensible: 炎色反応のみ true（minToCompleteで成立、最大数まで拡張可、最大時に得点アップ）
 const ROLES = [
   { id: 'enkabutsu',     name: '塩化物沈殿',        elements: ['Ag','Pb'], points: 2, formula: 'Ag + Pb' },
   { id: 'alkali',        name: 'アルカリ金属',      elements: ['Li','Na','K'], points: 5, formula: 'Li + Na + K' },
@@ -2102,7 +2115,7 @@ const ROLES = [
   { id: 'duralumin',     name: 'ジュラルミン',      elements: ['Al','Cu','Mg'], points: 5, formula: 'Al + Cu + Mg' },
   { id: 'fudoutai',      name: '不動態',            elements: ['Fe','Al','Cr','Ni'], points: 7, formula: 'Fe + Al + Cr + Ni' },
   { id: 'ammonia',       name: 'アンモニア錯体',    elements: ['Cu','Ag','Zn'], points: 5, formula: 'Cu + Ag + Zn' },
-  { id: 'flame',         name: '炎色反応',          elements: ['Li','Na','K','Cu','Ca','Ba'], points: 5, formula: '3つで5点・全6つで10点', extensible: true, completePoints: 10 },
+  { id: 'flame',         name: '炎色反応',          elements: ['Li','Na','K','Cu','Ca','Ba'], points: 5, formula: '4つで5点・全6つで10点', extensible: true, completePoints: 10, minToComplete: 4 },
   { id: 'copper_alloy',  name: '銅合金',            elements: ['Cu','Zn','Sn','Ni'], points: 7, formula: 'Cu + Zn + Sn + Ni' },
   { id: 'amphoteric',    name: '両性金属',          elements: ['Al','Zn','Sn','Pb'], points: 7, formula: 'Al + Zn + Sn + Pb' },
   { id: 'noble',         name: '貴金属',            elements: ['Au','Pt','Ag'], points: 5, formula: 'Au + Pt + Ag' },
@@ -3395,8 +3408,8 @@ function backToMenu() {
   document.getElementById('rankingScreen').classList.remove('active');
   document.getElementById('rankingRegisterOverlay').classList.remove('active');
   document.getElementById('startScreen').classList.add('active');
-  // メニューに戻ったらBGMを再開（タイトル画面で流す）
-  resumeBgm();
+  // メニューに戻ったらBGMを冒頭から再開
+  restartBgm();
 }
 
 // 前ラウンドの勝者（先攻決定用）
@@ -3826,20 +3839,33 @@ function slotProgress(player, roleId) {
   return { filled, total: role.elements.length };
 }
 
-// 役が成立しているか（拡張可役は最低3つで成立）
+// 役が成立しているか（拡張可役は最低 minToComplete 個で成立、デフォルト3）
 function isSlotComplete(player, roleId) {
   const role = ROLE_BY_ID[roleId];
   const p = slotProgress(player, roleId);
-  if (role.extensible) return p.filled >= 3;
+  if (role.extensible) return p.filled >= (role.minToComplete || 3);
   return p.filled === p.total;
 }
 
-// 拡張可役の現在の得点（3=3点、6=7点）
+// extensible 役で「次の1枚を入れた後」のステータスを返す
+// 戻り値: 'min'（最低成立に到達） / 'max'（最大成立に到達） / 'partial'（まだ未成立）
+function extensibleNextStatus(player, role) {
+  if (!role.extensible) return null;
+  const p = slotProgress(player, role.id);
+  const nextFilled = p.filled + 1;
+  const minC = role.minToComplete || 3;
+  const maxC = role.elements.length;
+  if (nextFilled >= maxC) return 'max';
+  if (nextFilled >= minC && p.filled < minC) return 'min'; // ちょうど最低到達
+  return 'partial';
+}
+
+// 拡張可役の現在の得点（最低成立=points、最大=completePoints）
 function getRoleCurrentPoints(player, roleId) {
   const role = ROLE_BY_ID[roleId];
   if (!role.extensible) return role.points;
   const p = slotProgress(player, roleId);
-  if (p.filled >= 6) return role.completePoints;
+  if (p.filled >= role.elements.length) return role.completePoints;
   return role.points;
 }
 
@@ -3855,10 +3881,10 @@ function getPlaceableRoles(player, card) {
     if (!role.extensible && isSlotComplete(player, role.id) && hasSlot(player, role.id)) continue;
     // 完成済み非拡張役（completedRoles 入り）に新しく入れることもなし
     if (player.completedRoles.includes(role.id) && !role.extensible) continue;
-    // 拡張可役で6マス全部埋まってるなら配置不可
+    // 拡張可役で全マス埋まってるなら配置不可
     if (role.extensible) {
       const p = slotProgress(player, role.id);
-      if (p.filled >= 6) continue;
+      if (p.filled >= role.elements.length) continue;
     }
     result.push(role);
   }
@@ -4224,7 +4250,7 @@ function renderPlaceModal() {
 
 function createRoleOption(role, player, cardId, disabled) {
   const opt = document.createElement('div');
-  opt.className = 'modal-role';
+  opt.className = 'modal-role role-option';
   if (disabled) opt.classList.add('disabled');
   if (placeModalState.selections[cardId] === role.id) opt.classList.add('selected');
   
@@ -4375,9 +4401,9 @@ function checkRolesAfterPlacement() {
     if (!hasSlot(player, role.id)) continue;
     
     if (role.extensible) {
-      // 拡張可：3つ以上で「成立」状態。まだ申告してなければ、または前回より成長していれば対象
+      // 拡張可：minToComplete 以上で「成立」状態。まだ申告してなければ、または前回より成長していれば対象
       const progress = slotProgress(player, role.id);
-      if (progress.filled < 3) continue;
+      if (progress.filled < (role.minToComplete || 3)) continue;
       
       const wasCompleted = player.completedRoles.includes(role.id);
       if (!wasCompleted) {
@@ -4385,8 +4411,8 @@ function checkRolesAfterPlacement() {
         newRoles.push({ role, mode: 'new', currentPoints: getRoleCurrentPoints(player, role.id) });
       } else {
         // 拡張：前回からの進捗があるかどうかは別途記録が必要だが、簡易的に「まだ6マス埋まってない+α」で再申告対象に
-        // ここでは「6マス埋まったら格上げ申告可能」というルールにする
-        if (progress.filled === 6 && !player.completedRoles.includes(role.id + '_full')) {
+        // ここでは「全マス埋まったら格上げ申告可能」というルールにする
+        if (progress.filled === role.elements.length && !player.completedRoles.includes(role.id + '_full')) {
           newRoles.push({ role, mode: 'upgrade', currentPoints: role.completePoints });
         }
       }
@@ -4869,8 +4895,8 @@ function cpuRemainingForRole(player, roleId) {
   
   if (!hasSlot(player, roleId)) {
     // スロット未生成 → 全元素必要
-    // ただし extensible（炎色反応）は3枚成立が最初の到達点
-    if (role.extensible) return 3;
+    // ただし extensible は minToComplete が最初の到達点
+    if (role.extensible) return (role.minToComplete || 3);
     return role.elements.length;
   }
   const slot = player.slots[roleId];
@@ -4878,16 +4904,18 @@ function cpuRemainingForRole(player, roleId) {
   for (const e of role.elements) {
     if (!slot[e]) needed++;
   }
-  // extensible（炎色反応）は最低3枚で成立、6枚で完全
+  // extensible は最低 minToComplete 枚で成立、最大枚で完全
   if (role.extensible) {
-    const filled = role.elements.length - needed;
-    if (filled >= 6) return -1; // 完全成立済み
-    if (filled >= 3) {
-      // 6枚到達まで残り何枚
-      return 6 - filled;
+    const minC = role.minToComplete || 3;
+    const maxC = role.elements.length;
+    const filled = maxC - needed;
+    if (filled >= maxC) return -1; // 完全成立済み
+    if (filled >= minC) {
+      // 完全到達まで残り何枚
+      return maxC - filled;
     }
-    // まだ3枚未満なら、3枚到達までの残り
-    return 3 - filled;
+    // まだ minC 未満なら、最低到達までの残り
+    return minC - filled;
   }
   return needed;
 }
@@ -4910,7 +4938,7 @@ function cpuEvaluateCardContribution(player, card) {
     if (afterRemaining === 0) {
       // 完成スコア: 役の点数を加味
       const pts = role.extensible 
-        ? (remaining === 3 ? role.points : role.completePoints)
+        ? (extensibleNextStatus(player, role) === 'min' ? role.points : role.completePoints)
         : role.points;
       score = 10 + pts;
     } else {
@@ -5008,7 +5036,7 @@ function cpuPickBestPlacements(player, captures, existingPendings) {
       let score;
       if (afterRemaining === 0) {
         const pts = role.extensible
-          ? (remaining === 3 ? role.points : role.completePoints - role.points)
+          ? (extensibleNextStatus(player, role) === 'min' ? role.points : role.completePoints - role.points)
           : role.points;
         score = 100 + pts;
       } else {
@@ -5202,15 +5230,17 @@ function cpuStrongRoleProbability(player, roleId) {
     role.elements.forEach(e => neededSymbols.push(e));
   }
   
-  // extensible（炎色反応）：3枚成立か6枚完全か
+  // extensible：最低成立か最大成立か
   let needed;
   if (role.extensible) {
-    const filled = role.elements.length - neededSymbols.length;
-    if (filled >= 6) return 0;
-    if (filled >= 3) {
-      needed = 6 - filled;
+    const minC = role.minToComplete || 3;
+    const maxC = role.elements.length;
+    const filled = maxC - neededSymbols.length;
+    if (filled >= maxC) return 0;
+    if (filled >= minC) {
+      needed = maxC - filled;
     } else {
-      needed = 3 - filled;
+      needed = minC - filled;
     }
   } else {
     needed = neededSymbols.length;
@@ -5296,7 +5326,7 @@ function cpuStrongEvaluateCardContribution(player, card) {
     if (afterRemaining === 0) {
       // 即完成：最大点を加算（即完成は1つしか起きないので、最大値だけ取る）
       const pts = role.extensible
-        ? (remaining === 3 ? role.points : role.completePoints)
+        ? (extensibleNextStatus(player, role) === 'min' ? role.points : role.completePoints)
         : role.points;
       const immediateScore = 15 + pts;
       if (immediateScore > bestImmediate) bestImmediate = immediateScore;
@@ -5426,7 +5456,7 @@ function cpuStrongPickPlacements(player, captures, existingPendings) {
       if (afterRemaining === 0) {
         // 即完成
         const pts = role.extensible
-          ? (remaining === 3 ? role.points : role.completePoints - role.points)
+          ? (extensibleNextStatus(player, role) === 'min' ? role.points : role.completePoints - role.points)
           : role.points;
         score = 100 + pts;
       } else {
@@ -5586,15 +5616,17 @@ function cpuOniSimDetectNewRoles(player) {
     if (player.completedRoles.includes(role.id) && !role.extensible) continue;
     if (!hasSlot(player, role.id)) continue;
     if (role.extensible) {
+      const minC = role.minToComplete || 3;
+      const maxC = role.elements.length;
       let filled = 0;
       const slot = player.slots[role.id];
       for (const e of role.elements) if (slot[e]) filled++;
-      if (filled < 3) continue;
+      if (filled < minC) continue;
       const wasCompleted = player.completedRoles.includes(role.id);
       if (!wasCompleted) {
-        const pts = filled >= 6 ? role.completePoints : role.points;
+        const pts = filled >= maxC ? role.completePoints : role.points;
         newRoles.push({ role, mode: 'new', currentPoints: pts });
-      } else if (filled === 6 && !player.completedRoles.includes(role.id + '_full')) {
+      } else if (filled === maxC && !player.completedRoles.includes(role.id + '_full')) {
         newRoles.push({ role, mode: 'upgrade', currentPoints: role.completePoints });
       }
     } else {
@@ -6376,12 +6408,12 @@ function cpuCheckRoles() {
     
     if (role.extensible) {
       const progress = slotProgress(cpu, role.id);
-      if (progress.filled < 3) continue;
+      if (progress.filled < (role.minToComplete || 3)) continue;
       const wasCompleted = cpu.completedRoles.includes(role.id);
       if (!wasCompleted) {
         newRoles.push({ role, mode: 'new', currentPoints: getRoleCurrentPoints(cpu, role.id) });
       } else {
-        if (progress.filled === 6 && !cpu.completedRoles.includes(role.id + '_full')) {
+        if (progress.filled === role.elements.length && !cpu.completedRoles.includes(role.id + '_full')) {
           newRoles.push({ role, mode: 'upgrade', currentPoints: role.completePoints });
         }
       }
