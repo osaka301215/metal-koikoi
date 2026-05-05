@@ -195,11 +195,10 @@ main {
   letter-spacing: 0.1em;
 }
 
-/* 役スロット（左）と保留札（右）の横並びレイアウト
-   役は中身が短いので狭め、保留札は溜まりやすいので広めに */
+/* 役スロット（左：3列×2段＝最大6役）と保留札（右）の横並びレイアウト */
 .slots-pending-row {
   display: grid;
-  grid-template-columns: minmax(280px, 360px) 1fr;
+  grid-template-columns: minmax(540px, 0.65fr) 1fr;
   gap: 10px;
   align-items: start;
 }
@@ -207,12 +206,12 @@ main {
 .slots-pending-row .pending-col {
   min-width: 0;
 }
-/* 保留札は枚数が多くなることがあるので、広めに、複数行折り返し前提 */
+/* 保留札は枚数が多くなることがあるので、複数行折り返し前提 */
 .slots-pending-row .cards-pending {
   min-height: 90px;
 }
 /* 狭い画面では縦並びに戻す */
-@media (max-width: 700px) {
+@media (max-width: 900px) {
   .slots-pending-row {
     grid-template-columns: 1fr;
   }
@@ -529,8 +528,9 @@ aside h2 {
 
 /* スロットエリア */
 .slots-area {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: min-content;
   gap: 3px;
   background: rgba(0,0,0,0.2);
   border: 1px dashed rgba(201, 169, 97, 0.3);
@@ -547,6 +547,7 @@ aside h2 {
   display: block;
   text-align: center;
   padding: 6px 0;
+  grid-column: 1 / -1;
 }
 
 .slot {
@@ -558,6 +559,7 @@ aside h2 {
   border: 1px solid rgba(201, 169, 97, 0.3);
   border-radius: 3px;
   font-size: 0.7rem;
+  min-width: 0;
 }
 
 .slot.complete {
@@ -568,8 +570,11 @@ aside h2 {
 .slot-name {
   font-weight: 600;
   color: var(--gold-bright);
-  min-width: 90px;
+  min-width: 0;
   font-size: 0.7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .slot-mini-cards {
@@ -4100,8 +4105,20 @@ function getRoleCurrentPoints(player, roleId) {
 
 // 札を配置できる役の候補リストを返す
 // その役のelementsにcard.symbolが含まれ、かつそのマスがまだ空いている役
+// 役スロットの最大数（UI上は3列×2段で表示するため6つまで）
+const MAX_ROLE_SLOTS = 6;
+
+// 現在生成済みのスロット数
+function countActiveSlots(player) {
+  if (!player || !player.slots) return 0;
+  return Object.keys(player.slots).length;
+}
+
 function getPlaceableRoles(player, card) {
   const result = [];
+  // 既にMAX_ROLE_SLOTS個のスロットを使ってる場合、新規スロット生成は不可
+  // （既存スロットへの追加配置は引き続きOK）
+  const slotsFull = countActiveSlots(player) >= MAX_ROLE_SLOTS;
   for (const role of ROLES) {
     if (!role.elements.includes(card.symbol)) continue;
     // すでにそのマスが埋まっているなら配置不可
@@ -4115,6 +4132,8 @@ function getPlaceableRoles(player, card) {
       const p = slotProgress(player, role.id);
       if (p.filled >= role.elements.length) continue;
     }
+    // スロット枠が満杯なら、新規スロット生成（=未生成役）は除外
+    if (slotsFull && !hasSlot(player, role.id)) continue;
     result.push(role);
   }
   return result;
@@ -4375,7 +4394,12 @@ function renderPlaceModal() {
       note.style.color = 'var(--ink-soft)';
       note.style.fontSize = '0.8rem';
       note.style.padding = '6px';
-      note.textContent = '※ 配置できる役なし（保留に）';
+      // スロット満杯が原因で候補なしになっているか判別
+      if (countActiveSlots(player) >= MAX_ROLE_SLOTS) {
+        note.textContent = `※ 役スロットが満杯（${MAX_ROLE_SLOTS}つ）。保留に回します`;
+      } else {
+        note.textContent = '※ 配置できる役なし（保留に）';
+      }
       optionsList.appendChild(note);
       placeModalState.selections[card.id] = 'pending';
     }
