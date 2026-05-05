@@ -195,23 +195,24 @@ main {
   letter-spacing: 0.1em;
 }
 
-/* 役スロット（左）と保留札（右）の横並びレイアウト */
+/* 役スロット（左）と保留札（右）の横並びレイアウト
+   役は中身が短いので狭め、保留札は溜まりやすいので広めに */
 .slots-pending-row {
   display: grid;
-  grid-template-columns: 1fr 130px;
-  gap: 8px;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: 10px;
   align-items: start;
 }
 .slots-pending-row .slots-col,
 .slots-pending-row .pending-col {
   min-width: 0;
 }
-/* 横並び時は保留札の最小高さを役スロットと近づける（短いと寂しいので） */
+/* 保留札は枚数が多くなることがあるので、広めに、複数行折り返し前提 */
 .slots-pending-row .cards-pending {
-  min-height: 70px;
+  min-height: 90px;
 }
 /* 狭い画面では縦並びに戻す */
-@media (max-width: 540px) {
+@media (max-width: 700px) {
   .slots-pending-row {
     grid-template-columns: 1fr;
   }
