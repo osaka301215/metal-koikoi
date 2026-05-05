@@ -2470,6 +2470,8 @@ function maybeOfferRankingRegistration() {
   const rounds = totalRounds;
   const average = totalScore / rounds;
   // ラウンド内最高得点 + その内訳
+  // 同点が複数ある場合は「役の枚数が多い方（より豪華）」を優先、
+  // それも同じなら最初に出たラウンドを採用
   let maxRound = 0;
   let maxRoundDetail = null;
   for (let i = 0; i < myRoundDetails.length; i++) {
@@ -2477,6 +2479,13 @@ function maybeOfferRankingRegistration() {
     if (d.score > maxRound) {
       maxRound = d.score;
       maxRoundDetail = d;
+    } else if (d.score === maxRound && maxRoundDetail) {
+      // 同点：役の数が多い方を優先
+      const newRoleCount = Array.isArray(d.breakdown) ? d.breakdown.length : 0;
+      const curRoleCount = Array.isArray(maxRoundDetail.breakdown) ? maxRoundDetail.breakdown.length : 0;
+      if (newRoleCount > curRoleCount) {
+        maxRoundDetail = d;
+      }
     }
   }
   
