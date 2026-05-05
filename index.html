@@ -151,6 +151,12 @@ main {
   letter-spacing: 0.2em;
 }
 
+.player-header-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .score-badge {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.75rem;
@@ -2029,8 +2035,10 @@ body.tut-active .action-bar > * {
     <!-- 相手 (上) -->
     <section class="player-area" id="opponentArea">
       <div class="player-header">
-        <span id="opponentName">相手</span>
-        <span class="score-badge">手札 <span id="opponentHandCount">0</span></span>
+        <span class="player-header-left">
+          <span id="opponentName">相手</span>
+          <span class="score-badge">手札 <span id="opponentHandCount">0</span></span>
+        </span>
         <span class="score-badge">得点 <span id="opponentScore">0</span></span>
       </div>
       <div class="player-body">
