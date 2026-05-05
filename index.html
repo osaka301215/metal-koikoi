@@ -1109,13 +1109,6 @@ aside h2 {
   border-radius: 2px;
 }
 
-.opponent-hand .card-back {
-  width: 50px;
-  height: 75px;
-}
-
-.opponent-hand .card-back::after { font-size: 1.4rem; }
-
 .round-btn {
   width: 40px;
   height: 40px;
@@ -2037,13 +2030,10 @@ body.tut-active .action-bar > * {
     <section class="player-area" id="opponentArea">
       <div class="player-header">
         <span id="opponentName">相手</span>
+        <span class="score-badge">手札 <span id="opponentHandCount">0</span></span>
         <span class="score-badge">得点 <span id="opponentScore">0</span></span>
       </div>
       <div class="player-body">
-        <div>
-          <div class="section-label">手札（裏）</div>
-          <div class="cards opponent-hand" id="opponentHand"></div>
-        </div>
         <div>
           <div class="section-label">役スロット</div>
           <div class="slots-area" id="opponentSlots"></div>
@@ -6978,12 +6968,8 @@ function render() {
     selfHand.appendChild(div);
   });
   
-  // 相手の手札（裏向き、枚数のみ）
-  const opponentHand = document.getElementById('opponentHand');
-  opponentHand.innerHTML = '';
-  state.players[oppIdx].hand.forEach(() => {
-    opponentHand.appendChild(renderCard(null, { faceDown: true }));
-  });
+  // 相手の手札（枚数のみ表示）
+  document.getElementById('opponentHandCount').textContent = state.players[oppIdx].hand.length;
   
   // 場札（自分の手番のときのみクリック可）
   const fieldCards = document.getElementById('fieldCards');
