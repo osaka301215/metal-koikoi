@@ -151,12 +151,6 @@ main {
   letter-spacing: 0.2em;
 }
 
-.player-header-left {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .score-badge {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.75rem;
@@ -199,6 +193,28 @@ main {
   color: var(--ink-soft);
   font-size: 0.75rem;
   letter-spacing: 0.1em;
+}
+
+/* 役スロット（左）と保留札（右）の横並びレイアウト */
+.slots-pending-row {
+  display: grid;
+  grid-template-columns: 1fr 130px;
+  gap: 8px;
+  align-items: start;
+}
+.slots-pending-row .slots-col,
+.slots-pending-row .pending-col {
+  min-width: 0;
+}
+/* 横並び時は保留札の最小高さを役スロットと近づける（短いと寂しいので） */
+.slots-pending-row .cards-pending {
+  min-height: 70px;
+}
+/* 狭い画面では縦並びに戻す */
+@media (max-width: 540px) {
+  .slots-pending-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .field-area {
@@ -1114,6 +1130,13 @@ aside h2 {
   height: 10px;
   border-radius: 2px;
 }
+
+.opponent-hand .card-back {
+  width: 50px;
+  height: 75px;
+}
+
+.opponent-hand .card-back::after { font-size: 1.4rem; }
 
 .round-btn {
   width: 40px;
@@ -2035,20 +2058,23 @@ body.tut-active .action-bar > * {
     <!-- 相手 (上) -->
     <section class="player-area" id="opponentArea">
       <div class="player-header">
-        <span class="player-header-left">
-          <span id="opponentName">相手</span>
-          <span class="score-badge">手札 <span id="opponentHandCount">0</span></span>
-        </span>
+        <span id="opponentName">相手</span>
         <span class="score-badge">得点 <span id="opponentScore">0</span></span>
       </div>
       <div class="player-body">
         <div>
-          <div class="section-label">役スロット</div>
-          <div class="slots-area" id="opponentSlots"></div>
+          <div class="section-label">手札（裏）</div>
+          <div class="cards opponent-hand" id="opponentHand"></div>
         </div>
-        <div>
-          <div class="section-label">保留札（ペンディング）</div>
-          <div class="cards cards-pending" id="opponentPending"></div>
+        <div class="slots-pending-row">
+          <div class="slots-col">
+            <div class="section-label">役スロット</div>
+            <div class="slots-area" id="opponentSlots"></div>
+          </div>
+          <div class="pending-col">
+            <div class="section-label">保留札</div>
+            <div class="cards cards-pending" id="opponentPending"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -2082,13 +2108,15 @@ body.tut-active .action-bar > * {
           <div class="section-label">手札</div>
           <div class="cards" id="selfHand"></div>
         </div>
-        <div>
-          <div class="section-label">役スロット</div>
-          <div class="slots-area" id="selfSlots"></div>
-        </div>
-        <div>
-          <div class="section-label">保留札（ペンディング）</div>
-          <div class="cards cards-pending" id="selfPending"></div>
+        <div class="slots-pending-row">
+          <div class="slots-col">
+            <div class="section-label">役スロット</div>
+            <div class="slots-area" id="selfSlots"></div>
+          </div>
+          <div class="pending-col">
+            <div class="section-label">保留札</div>
+            <div class="cards cards-pending" id="selfPending"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -6976,8 +7004,12 @@ function render() {
     selfHand.appendChild(div);
   });
   
-  // 相手の手札（枚数のみ表示）
-  document.getElementById('opponentHandCount').textContent = state.players[oppIdx].hand.length;
+  // 相手の手札（裏向き、枚数のみ）
+  const opponentHand = document.getElementById('opponentHand');
+  opponentHand.innerHTML = '';
+  state.players[oppIdx].hand.forEach(() => {
+    opponentHand.appendChild(renderCard(null, { faceDown: true }));
+  });
   
   // 場札（自分の手番のときのみクリック可）
   const fieldCards = document.getElementById('fieldCards');
