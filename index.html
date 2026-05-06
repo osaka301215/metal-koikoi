@@ -1153,6 +1153,22 @@ body.modal-open {
   z-index: 200;
   pointer-events: none;
   transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* 折り返し抑制：1行で表示する */
+  white-space: nowrap;
+}
+
+/* スマホでは画面幅に収めるため縮小 */
+@media (max-width: 600px) {
+  .koikoi-banner {
+    font-size: 3.2rem;
+    letter-spacing: 0.15em;
+  }
+}
+@media (max-width: 380px) {
+  .koikoi-banner {
+    font-size: 2.6rem;
+    letter-spacing: 0.1em;
+  }
 }
 
 .koikoi-banner.show {
