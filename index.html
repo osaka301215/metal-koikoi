@@ -4182,8 +4182,8 @@ function getRoleCurrentPoints(player, roleId) {
 
 // 札を配置できる役の候補リストを返す
 // その役のelementsにcard.symbolが含まれ、かつそのマスがまだ空いている役
-// 役スロットの最大数（UI上は3列×2段で表示するため6つまで）
-const MAX_ROLE_SLOTS = 6;
+// 役スロットの最大数（上限なし。再導入したい場合は数値に変更）
+const MAX_ROLE_SLOTS = Infinity;
 
 // 現在生成済みのスロット数
 function countActiveSlots(player) {
