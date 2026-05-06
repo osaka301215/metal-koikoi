@@ -897,6 +897,13 @@ aside h2 {
 
 .modal-overlay.active { display: flex; }
 
+/* モーダル表示中は背景のスクロールを止める（モーダル内部のスクロールは独立して動く） */
+body.modal-open {
+  overflow: hidden;
+  /* iOS等でtouchスクロールが背景に貫通するのを防ぐ */
+  overscroll-behavior: contain;
+}
+
 .modal {
   background: var(--bg-mid);
   border: 2px solid var(--gold);
@@ -1659,6 +1666,8 @@ body.tut-active .action-bar > * {
 <!-- 勝敗ジングル -->
 <audio id="seWin" preload="auto" src="win.mp3"></audio>
 <audio id="seLose" preload="auto" src="lose.mp3"></audio>
+<!-- カード操作音（取る・置く・めくる共通） -->
+<audio id="seCard" preload="auto" src="card.mp3"></audio>
 <!-- ↑ 将来追加するゲーム中SE（カード取り音など）も同じ要領で <audio id="seXxx" ...> を追加し、
      playSE('xxx') で呼び出せます。 -->
 
@@ -2382,26 +2391,20 @@ function toggleExpertMode(switchId) {
   });
 }
 
-// ===== 外観テーマ・BGM 設定 =====
+// ===== 外観テーマ・BGM・SE 設定 =====
+// 設定はキャッシュせず、毎回デフォルト値から開始する。
+// 過去バージョンで保存された localStorage のキャッシュも起動時に削除する。
 const SETTINGS_KEY = 'metalKoikoiSettings';
 
 function loadSettings() {
-  const defaults = { theme: 'default', bgm: false, se: true };
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      // 旧バージョンの保存設定にseキーが無い場合のためにマージ
-      return Object.assign({}, defaults, parsed);
-    }
-  } catch (e) {}
-  return defaults;
+  // 過去に保存されたキャッシュがあれば消去（下位互換）
+  try { localStorage.removeItem(SETTINGS_KEY); } catch (e) {}
+  // 常にデフォルト値を返す（永続化しない）
+  return { theme: 'default', bgm: false, se: false };
 }
 
 function saveSettings(s) {
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
-  } catch (e) {}
+  // 永続化しない（no-op）。userSettings はメモリ上でのみ更新される。
 }
 
 let userSettings = loadSettings();
@@ -2475,6 +2478,7 @@ function toggleBgm() {
 const SE_AUDIO_IDS = {
   win:  'seWin',
   lose: 'seLose',
+  card: 'seCard',
 };
 
 function syncSeSwitches() {
@@ -4266,6 +4270,7 @@ function placeSelectedCardOnField() {
   const card = state.selectedHandCard;
   
   log(`${card.symbol}を場に置きました。`);
+  playSE('card');
   player.hand = player.hand.filter(c => c.id !== card.id);
   state.field.push(card);
   state.selectedHandCard = null;
@@ -4288,6 +4293,7 @@ function selectFieldCard(cardId) {
     }
     
     log(`${handCard.symbol}で場の${fieldCard.symbol}を取りました。`);
+    playSE('card');
     player.hand = player.hand.filter(c => c.id !== handCard.id);
     state.field = state.field.filter(c => c.id !== fieldCard.id);
     
@@ -4305,6 +4311,7 @@ function selectFieldCard(cardId) {
     }
     
     log(`山札の${drawnCard.symbol}で場の${fieldCard.symbol}を取りました。`);
+    playSE('card');
     state.field = state.field.filter(c => c.id !== fieldCard.id);
     state.pendingCaptures.push(drawnCard, fieldCard);
     state.drawnCard = null;
@@ -4325,11 +4332,13 @@ function proceedToDraw() {
   const matches = findMatches(drawn, state.field);
   
   log(`山札から${drawn.symbol}が出ました。`);
+  playSE('card');
   render();
   
   if (matches.length === 0) {
     setTimeout(() => {
       log(`${drawn.symbol}を場に置きました。`);
+      playSE('card');
       state.field.push(drawn);
       state.drawnCard = null;
       afterAllCaptures();
@@ -6605,6 +6614,7 @@ function cpuPlayHand() {
     cpu.hand = cpu.hand.filter(c => c.id !== handCard.id);
     state.field.push(handCard);
     log(`${playerNames[1]}: ${handCard.symbol} を場に置きました。`);
+    playSE('card');
     render();
     
     cpuActionTimer = setTimeout(() => {
@@ -6625,6 +6635,7 @@ function cpuPlayHand() {
     state.field = state.field.filter(c => c.id !== fieldCard.id);
     state.pendingCaptures.push(handCard, fieldCard);
     log(`${playerNames[1]}: ${handCard.symbol} で場の ${fieldCard.symbol} を取りました。`);
+    playSE('card');
     render();
     
     cpuActionTimer = setTimeout(() => {
@@ -6647,6 +6658,7 @@ function cpuDrawFromDeck() {
   state.drawnCard = drawn;
   const matches = findMatches(drawn, state.field);
   log(`${playerNames[1]}: 山札から ${drawn.symbol}。`);
+  playSE('card');
   render();
   
   cpuActionTimer = setTimeout(() => {
@@ -6656,6 +6668,7 @@ function cpuDrawFromDeck() {
       state.field.push(drawn);
       state.drawnCard = null;
       log(`${playerNames[1]}: ${drawn.symbol} を場に置きました。`);
+      playSE('card');
       render();
       cpuActionTimer = setTimeout(() => {
         cpuActionTimer = null;
@@ -6676,6 +6689,7 @@ function cpuDrawFromDeck() {
       state.pendingCaptures.push(drawn, fieldCard);
       state.drawnCard = null;
       log(`${playerNames[1]}: 山札の ${drawn.symbol} で場の ${fieldCard.symbol} を取りました。`);
+      playSE('card');
       render();
       cpuActionTimer = setTimeout(() => {
         cpuActionTimer = null;
@@ -7289,12 +7303,28 @@ function log(msg) {
   document.getElementById('messageLog').innerHTML = msg;
 }
 
+// モーダル表示中は背景スクロールを抑止する。
+// 複数モーダルが同時に開くことがあるので、開いている数を数えて最後の1つが閉じたときだけ解除。
+function _activeModalCount() {
+  return document.querySelectorAll('.modal-overlay.active').length;
+}
+
 function showModal(id) {
-  document.getElementById(id).classList.add('active');
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el.classList.contains('active')) return; // 既に開いてる場合は何もしない
+  el.classList.add('active');
+  document.body.classList.add('modal-open');
 }
 
 function hideModal(id) {
-  document.getElementById(id).classList.remove('active');
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!el.classList.contains('active')) return;
+  el.classList.remove('active');
+  if (_activeModalCount() === 0) {
+    document.body.classList.remove('modal-open');
+  }
 }
 
 function toggleRoleList() {
