@@ -1617,6 +1617,95 @@ body.tut-active .action-bar > * {
   .tut-bubble-title { font-size: 0.95rem; }
   .tut-bubble-message { font-size: 0.8rem; line-height: 1.6; }
 }
+
+/* ============================================================
+   スマホ表示の改行・テキスト整形改善
+   - 日本語の単語境界で不自然に切れないよう line-break/word-break を調整
+   - 大きい letter-spacing は狭い画面で詰める
+   - 長い文字列が画面幅を超える時のフォールバックも入れる
+   ============================================================ */
+body {
+  /* 日本語向け：単語の途中で切らず、句読点も適切に処理（禁則処理） */
+  word-break: normal;
+  line-break: strict;
+  overflow-wrap: break-word;
+}
+
+/* ボタン・見出し系：letter-spacing が大きいので狭い画面で詰める */
+@media (max-width: 600px) {
+  /* ヘッダーロゴ */
+  h1 {
+    font-size: 1.3rem;
+    letter-spacing: 0.15em;
+  }
+  .subtitle {
+    letter-spacing: 0.15em;
+    font-size: 0.65rem;
+  }
+  /* タイトル画面の大見出しも縮小 */
+  #startScreen [style*="font-size: 2.5rem"] {
+    font-size: 1.8rem !important;
+    letter-spacing: 0.15em !important;
+  }
+  /* 各セットアップ画面の大見出し（1.6rem 系）も縮小 */
+  #pvpSetupScreen [style*="font-size: 1.6rem"],
+  #cpuSetupScreen [style*="font-size: 1.6rem"],
+  #onlineSetupScreen [style*="font-size: 1.6rem"],
+  #onlineRoundSelectScreen [style*="font-size: 1.6rem"],
+  #rematchSetupScreen [style*="font-size: 1.6rem"] {
+    font-size: 1.3rem !important;
+    letter-spacing: 0.15em !important;
+  }
+  /* ランキング画面の見出し（2rem）も縮小 */
+  #rankingScreen [style*="font-size: 2rem"] {
+    font-size: 1.5rem !important;
+    letter-spacing: 0.15em !important;
+  }
+  /* ランキングタブの内側パディングを更に詰めて4タブ収まりやすく */
+  .ranking-tab {
+    padding: 7px 10px;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+  }
+  /* 設定パネルの見出し */
+  .section-label {
+    letter-spacing: 0.15em;
+  }
+  /* セレクトボックス・ボタンの長文字対応 */
+  button {
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  /* ラウンド選択ボタンなど数字系：詰める */
+  .round-btn {
+    letter-spacing: 0.05em;
+  }
+  /* 役スロット：スマホでは横一列に1役ずつ表示（PCは2列のまま） */
+  .slots-area {
+    grid-template-columns: 1fr;
+  }
+  /* ヘッダーの背景文字（金 屬 之 戯）も縮小 */
+  header::before {
+    font-size: 3rem;
+  }
+}
+
+/* 極狭画面（〜380px：iPhone SE 第一世代など）追加調整 */
+@media (max-width: 380px) {
+  h1 {
+    font-size: 1.15rem;
+    letter-spacing: 0.1em;
+  }
+  #startScreen [style*="font-size: 2.5rem"] {
+    font-size: 1.5rem !important;
+    letter-spacing: 0.1em !important;
+  }
+  .ranking-tab {
+    padding: 6px 8px;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+  }
+}
 </style>
 
 <!-- Firebase SDK（v9 compat版） -->
