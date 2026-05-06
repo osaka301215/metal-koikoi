@@ -8603,10 +8603,10 @@ const TUTORIAL_STEPS = [
       () => document.querySelector(`[data-card-id="${tutCards.znInHand.id}"]`),
       () => document.querySelector('#selfSlots [data-role-id="alkali_earth"]'),
     ],
-    // 役スロット(アルカリ土類金属)の上に吹き出しを置いてリーチを示す
+    // 役スロット(アルカリ土類金属)の右側に吹き出しを置く（上に置くと手札と被るため）
     bubblePosition: {
       target: () => document.querySelector('#selfSlots [data-role-id="alkali_earth"]'),
-      side: 'top',
+      side: 'right',
     },
     advance: {
       type: 'forced-tap',
