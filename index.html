@@ -6482,6 +6482,106 @@ function cpuOniSimulateRound(simState, startingIdx, strategyP0, strategyP1) {
   };
 }
 
+// 標準正規分布の累積分布関数（CDF）の近似
+// Abramowitz & Stegun 26.2.17 (誤差 < 7.5e-8)
+function cpuNormalCdf(x) {
+  const a1 =  0.254829592;
+  const a2 = -0.284496736;
+  const a3 =  1.421413741;
+  const a4 = -1.453152027;
+  const a5 =  1.061405429;
+  const p  =  0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  const ax = Math.abs(x) / Math.sqrt(2);
+  const t = 1.0 / (1.0 + p * ax);
+  const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-ax * ax);
+  return 0.5 * (1.0 + sign * y);
+}
+
+// 残りラウンドの「1ラウンドあたりの得点差(自分-相手)」の分布パラメータをキャッシュする。
+// CPU の上がり/こいこい判断1回あたり1度だけシミュレーションして mean/sd を測り、
+// 評価ループ内では正規近似で勝率を求める。これにより計算量を抑えつつ実シミュ精度を確保。
+let _cpuFutureRoundDistCache = null;
+
+// キャッシュをクリア（次の判断タイミングで再計測される）
+function cpuClearFutureRoundDistCache() {
+  _cpuFutureRoundDistCache = null;
+}
+
+// 残り1ラウンドあたりの得点差の (mean, sd) を実シミュで測る。
+// 鬼CPU vs 鬼CPU を仮想対戦させてサンプリング。
+// trials は計測試行数（10〜20で十分）。
+function cpuMeasureFutureRoundDist(trials) {
+  // キャッシュ済みならそれを返す
+  if (_cpuFutureRoundDistCache) return _cpuFutureRoundDistCache;
+  
+  // 簡易：両者 strong 戦略で1ラウンドだけ回す。
+  // 鬼の MC ロジックは重すぎるので strong 戦略で代替（cpuOniSimulateRound は内部で
+  // strategy 文字列で動作切替）。
+  const diffs = [];
+  for (let t = 0; t < trials; t++) {
+    // 新規ラウンド初期状態を生成
+    const deck = shuffle(createDeck());
+    const players = [newPlayer(), newPlayer()];
+    for (let i = 0; i < 7; i++) {
+      players[0].hand.push(deck.pop());
+      players[1].hand.push(deck.pop());
+    }
+    const field = [];
+    for (let i = 0; i < 8; i++) field.push(deck.pop());
+    const sim = {
+      deck, field, players,
+      currentPlayer: Math.random() < 0.5 ? 0 : 1,
+      firstPlayerOfRound: 0,
+      firstPlayerHasPlayed: false,
+      pendingCaptures: [],
+      drawnCard: null,
+      selectedHandCard: null,
+      phase: 'play_hand',
+      gameOver: false,
+    };
+    sim.firstPlayerOfRound = sim.currentPlayer;
+    const result = cpuOniSimulateRound(sim, sim.currentPlayer, 'strong', 'strong');
+    diffs.push((result.p0Score | 0) - (result.p1Score | 0));
+  }
+  // 鬼CPU視点（player1）にする：差の符号反転して mean/sd 計算
+  const myDiffs = diffs.map(d => -d);
+  const mean = myDiffs.reduce((a, b) => a + b, 0) / myDiffs.length;
+  const variance = myDiffs.reduce((a, b) => a + (b - mean) ** 2, 0) / myDiffs.length;
+  const sd = Math.sqrt(variance);
+  // 互角想定：mean を 0 に丸める（プレイヤー難易度未知のため）
+  const stableMean = 0;
+  // sd は最小値ガード（変動なし=確定状態を避ける）
+  const stableSd = Math.max(8, sd);
+  _cpuFutureRoundDistCache = { mean: stableMean, sd: stableSd };
+  return _cpuFutureRoundDistCache;
+}
+
+// 残りラウンドでの最終勝率を推定する。
+// 「1ラウンドあたりの得点差」を独立同分布の正規分布で近似し、
+// R ラウンド合計の差の分布から「自分の累計 > 相手の累計」となる確率を計算する。
+//
+// 引数:
+//   currentDiff: 現在の累計差（自分 - 相手）。現ラウンドの結果を含めた値。
+//   remainingRounds: 残りラウンド数（0なら最終、1ならあと1ラウンド）
+// 戻り値: 0〜1の勝率（引分は0.5として加算）
+function cpuEstimateFinalWinProb(currentDiff, remainingRounds) {
+  if (remainingRounds <= 0) {
+    if (currentDiff > 0) return 1.0;
+    if (currentDiff < 0) return 0.0;
+    return 0.5; // 引き分け
+  }
+  // 実シミュで測ったパラメータを使用（キャッシュ済みならコスト0）
+  const dist = cpuMeasureFutureRoundDist(15);
+  // R ラウンド合計の分布: N(R*mean, R*SD^2)
+  const totalMean = remainingRounds * dist.mean;
+  const totalSd = Math.sqrt(remainingRounds) * dist.sd;
+  // P(currentDiff + futureDiff > 0) = P(futureDiff > -currentDiff)
+  // = 1 - Φ((-currentDiff - totalMean) / totalSd)
+  const z = (-currentDiff - totalMean) / totalSd;
+  return 1.0 - cpuNormalCdf(z);
+}
+
 // シミュレーション結果（このラウンドの両者得点）を、
 // 「累計スコア＋ラウンド進行」を加味した評価値に変換する
 // cpuIdx: CPU側プレイヤーインデックス
@@ -6498,28 +6598,35 @@ function cpuOniRoundOutcomeValue(cpuIdx, roundResult) {
   // 仮想的な「ラウンド終了後の累計」
   const myFinalCumulative = (cumulativeScores[cpuIdx] || 0) + myRoundScore;
   const oppFinalCumulative = (cumulativeScores[oppIdx] || 0) + oppRoundScore;
+  const cumulativeDiff = myFinalCumulative - oppFinalCumulative;
   
-  // 最終ラウンドかどうか
-  const isFinalRound = currentRound >= totalRounds;
+  // 残りラウンド数（このラウンド終了後に残るラウンド）
+  const remainingRounds = Math.max(0, totalRounds - currentRound);
   
-  if (isFinalRound) {
+  if (remainingRounds <= 0) {
     // 最終ラウンド：累計の勝敗が確定する → 勝敗に応じてボーナス/ペナルティ
-    if (myFinalCumulative > oppFinalCumulative) {
-      // 累計で勝つ → ボーナス +30
+    if (cumulativeDiff > 0) {
       return roundDiff + 30;
-    } else if (myFinalCumulative < oppFinalCumulative) {
-      // 累計で負ける → ペナルティ -30
+    } else if (cumulativeDiff < 0) {
       return roundDiff - 30;
     } else {
-      // 引き分け → 中立
       return roundDiff;
     }
-  } else {
-    // 中間ラウンド：このラウンドの得点差をそのまま使用
-    // ただし「累計差」も多少加味（リードを広げたい/縮めたい意識）
-    const cumulativeDiff = myFinalCumulative - oppFinalCumulative;
-    return roundDiff + cumulativeDiff * 0.1; // 累計差を1割反映
   }
+  
+  // 鬼CPU：中間ラウンドでも残りラウンド全体の勝率を推定して評価。
+  // 1ラウンドあたりの得点差を実シミュで測った正規分布で近似し、
+  // 最終勝率 → 評価値に変換する（勝率0.5を中立、勝率1.0を+30、勝率0を-30）。
+  // この処理は計算量があるため鬼CPUだけ有効（強・並・弱は従来の中間ロジック）。
+  if (cpuDifficulty === 'oni') {
+    const winProb = cpuEstimateFinalWinProb(cumulativeDiff, remainingRounds);
+    const expectedFinalBonus = (winProb - 0.5) * 60; // -30〜+30
+    // ラウンド単体の得点差も少し残す（局所最適も加味してブレ抑制）
+    return roundDiff * 0.5 + expectedFinalBonus;
+  }
+  
+  // 強・並・弱の中間ラウンド：従来通り、累計差を1割反映する単純評価
+  return roundDiff + cumulativeDiff * 0.1;
 }
 
 
