@@ -1683,14 +1683,23 @@ body.tut-active .action-bar > * {
       RANKING REGISTRATION
     </div>
     <div id="rankingRegisterSummary" style="background: rgba(201, 169, 97, 0.08); border: 1px solid rgba(201, 169, 97, 0.3); border-radius: 6px; padding: 14px; margin-bottom: 20px; text-align: center; color: var(--bg-card);"></div>
-    <div style="text-align: left; margin-bottom: 16px;">
-      <div style="font-size: 0.75rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 6px;">イニシャル（英大文字2文字）</div>
-      <input type="text" id="rankingInitialsInput" maxlength="3" placeholder="AB" class="name-input" style="text-align: center; font-size: 1.4rem; letter-spacing: 0.3em; font-family: 'JetBrains Mono', monospace;" oninput="onInitialsInput(event)">
-      <div id="rankingInitialsError" style="font-size: 0.75rem; color: var(--vermilion); margin-top: 6px; min-height: 18px;"></div>
+    <div id="rankingRegisterFormArea">
+      <div style="text-align: left; margin-bottom: 16px;">
+        <div style="font-size: 0.75rem; color: var(--gold); letter-spacing: 0.2em; margin-bottom: 6px;">イニシャル（英大文字2文字）</div>
+        <input type="text" id="rankingInitialsInput" maxlength="3" placeholder="AB" class="name-input" style="text-align: center; font-size: 1.4rem; letter-spacing: 0.3em; font-family: 'JetBrains Mono', monospace;" oninput="onInitialsInput(event)">
+        <div id="rankingInitialsError" style="font-size: 0.75rem; color: var(--vermilion); margin-top: 6px; min-height: 18px;"></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <button class="primary" id="rankingRegisterBtn" style="padding: 12px; font-size: 0.95rem; letter-spacing: 0.2em;">登録する</button>
+        <button onclick="closeRankingRegisterDialog()" style="font-size: 0.85rem;">登録しない</button>
+      </div>
     </div>
-    <div style="display: flex; flex-direction: column; gap: 8px;">
-      <button class="primary" id="rankingRegisterBtn" style="padding: 12px; font-size: 0.95rem; letter-spacing: 0.2em;">登録する</button>
-      <button onclick="closeRankingRegisterDialog()" style="font-size: 0.85rem;">登録しない</button>
+    <div id="rankingRegisterPostArea" style="display: none;">
+      <div style="text-align: center; color: var(--gold-bright); font-size: 1rem; letter-spacing: 0.2em; margin: 16px 0 20px;">登録が完了しました</div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <button class="primary" id="rankingViewBtn" style="padding: 12px; font-size: 0.95rem; letter-spacing: 0.2em;">ランキングを見る</button>
+        <button onclick="closeRankingRegisterDialog()" style="font-size: 0.85rem;">閉じる</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2668,8 +2677,30 @@ function showRankingRegisterDialog(record) {
     registerBtn.textContent = '登録する';
   }
   
+  // フォーム表示・登録完了表示を初期状態にリセット
+  const formArea = document.getElementById('rankingRegisterFormArea');
+  const postArea = document.getElementById('rankingRegisterPostArea');
+  if (formArea) formArea.style.display = '';
+  if (postArea) postArea.style.display = 'none';
+  
   overlay.classList.add('active');
   if (input) input.focus();
+}
+
+// 登録成功後：フォームを隠し、「ランキングを見る」ボタンを表示
+function showRankingPostRegisterButton(difficulty) {
+  const formArea = document.getElementById('rankingRegisterFormArea');
+  const postArea = document.getElementById('rankingRegisterPostArea');
+  if (formArea) formArea.style.display = 'none';
+  if (postArea) postArea.style.display = '';
+  const viewBtn = document.getElementById('rankingViewBtn');
+  if (viewBtn) {
+    viewBtn.onclick = () => {
+      closeRankingRegisterDialog();
+      openRankingScreen(difficulty);
+    };
+    viewBtn.focus();
+  }
 }
 
 function closeRankingRegisterDialog() {
@@ -2746,11 +2777,8 @@ async function submitRankingRecord(record) {
     }
     await ref.push(payload);
     if (btn) btn.textContent = '登録完了';
-    setTimeout(() => {
-      closeRankingRegisterDialog();
-      // 登録後にランキング画面へ
-      openRankingScreen(record.difficulty);
-    }, 700);
+    // 自動遷移せず、ユーザーが「ランキングを見る」ボタンを押すまで待つ
+    showRankingPostRegisterButton(record.difficulty);
   } catch (e) {
     console.error('ランキング登録失敗', e);
     if (err) err.textContent = '登録に失敗しました（ネットワーク状態を確認してください）';
@@ -2775,7 +2803,8 @@ function openRankingScreen(difficulty) {
 function closeRankingScreen() {
   document.getElementById('rankingScreen').classList.remove('active');
   document.getElementById('startScreen').classList.add('active');
-  resumeBgm();
+  // トップページに戻る時はBGMを冒頭から再開（メニュー戻りと統一）
+  restartBgm();
 }
 
 function switchRankingTab(difficulty) {
@@ -2937,7 +2966,8 @@ function openPvpSetup() {
 function closePvpSetup() {
   document.getElementById('pvpSetupScreen').classList.remove('active');
   document.getElementById('startScreen').classList.add('active');
-  resumeBgm();
+  // トップページに戻る時はBGMを冒頭から
+  restartBgm();
 }
 
 // 2人対戦ゲーム開始
@@ -2962,7 +2992,8 @@ function openCpuSetup() {
 function closeCpuSetup() {
   document.getElementById('cpuSetupScreen').classList.remove('active');
   document.getElementById('startScreen').classList.add('active');
-  resumeBgm();
+  // トップページに戻る時はBGMを冒頭から
+  restartBgm();
 }
 
 function startCpuGame(difficulty) {
@@ -2994,7 +3025,8 @@ function openOnlineSetup() {
 function closeOnlineSetup() {
   document.getElementById('onlineSetupScreen').classList.remove('active');
   document.getElementById('startScreen').classList.add('active');
-  resumeBgm();
+  // トップページに戻る時はBGMを冒頭から
+  restartBgm();
 }
 
 // オンライン用ラウンド数選択画面（ホストのみ）
