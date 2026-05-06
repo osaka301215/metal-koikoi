@@ -56,6 +56,22 @@ body.theme-japanese .modal-overlay {
   backdrop-filter: blur(4px);
 }
 
+/* 大阪モード（隠し要素）：背景は osaka.png に上書き */
+body.theme-osaka {
+  background-color: #1a1410;
+  background-image: 
+    linear-gradient(rgba(26, 20, 16, 0.55), rgba(26, 20, 16, 0.55)),
+    url('osaka.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+body.theme-osaka .modal-overlay {
+  background: rgba(26, 20, 16, 0.78) !important;
+  backdrop-filter: blur(4px);
+}
+
 .app {
   max-width: 1400px;
   margin: 0 auto;
@@ -1663,6 +1679,8 @@ body.tut-active .action-bar > * {
 
 <!-- BGM -->
 <audio id="bgmAudio" loop preload="auto" src="koikoibgm.mp3"></audio>
+<!-- 大阪モード用BGM（解放時のみ使用） -->
+<audio id="bgmAudioOsaka" loop preload="auto" src="osaka.mp3"></audio>
 
 <!-- SE（効果音）-->
 <!-- 勝敗ジングル -->
@@ -1811,6 +1829,11 @@ body.tut-active .action-bar > * {
       <div class="expert-toggle-row" onclick="toggleSe()" style="margin-top: 0; justify-content: space-between; padding: 0 8px;">
         <span>効果音（SE）</span>
         <div class="expert-toggle-switch se-switch" id="seSwitch"></div>
+      </div>
+      <!-- 大阪モード（解放時のみ表示） -->
+      <div class="expert-toggle-row" data-osaka-row onclick="toggleOsaka()" style="margin-top: 10px; justify-content: space-between; padding: 0 8px; display: none;">
+        <span style="color: var(--vermilion);">★ 大阪モード</span>
+        <div class="expert-toggle-switch osaka-switch" id="osakaSwitch"></div>
       </div>
     </div>
   </div>
@@ -2409,11 +2432,89 @@ function toggleExpertMode(switchId) {
 // 過去バージョンで保存された localStorage のキャッシュも起動時に削除する。
 const SETTINGS_KEY = 'metalKoikoiSettings';
 
+// 解放状態は永続化する（ランキング登録イニシャル等と同様の扱い）
+const UNLOCKS_KEY = 'metalKoikoiUnlocks';
+
+function loadUnlocks() {
+  try {
+    const raw = localStorage.getItem(UNLOCKS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return Object.assign({ osaka: false }, parsed);
+    }
+  } catch (e) {}
+  return { osaka: false };
+}
+
+function saveUnlocks(u) {
+  try { localStorage.setItem(UNLOCKS_KEY, JSON.stringify(u)); } catch (e) {}
+}
+
+let unlocks = loadUnlocks();
+
+// 大阪モード解放判定：上級者モード + 鬼CPU + 3R以上で勝利
+// 既に解放済みなら何もしない。新規解放時は通知する。
+function maybeUnlockOsakaMode() {
+  if (unlocks.osaka) return false;
+  if (gameMode !== 'cpu') return false;
+  if (cpuDifficulty !== 'oni') return false;
+  if (!expertMode) return false;
+  if (totalRounds < 3) return false;
+  // 自分が勝っているか
+  const myIdx = myPlayerIndex;
+  const oppIdx = 1 - myIdx;
+  if (cumulativeScores[myIdx] <= cumulativeScores[oppIdx]) return false;
+  
+  unlocks.osaka = true;
+  saveUnlocks(unlocks);
+  showOsakaUnlockToast();
+  // 設定UIに大阪モードトグルが出るように再描画
+  syncOsakaUiVisibility();
+  return true;
+}
+
+// 解放トースト：画面下部に控えめに表示
+function showOsakaUnlockToast() {
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position: fixed;
+    left: 50%;
+    bottom: 40px;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, var(--vermilion), #8a3a30);
+    color: var(--gold-bright);
+    padding: 16px 28px;
+    border: 1px solid var(--gold-bright);
+    border-radius: 4px;
+    font-family: 'Shippori Mincho', serif;
+    letter-spacing: 0.2em;
+    font-size: 1rem;
+    z-index: 5000;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  `;
+  toast.innerHTML = `
+    <div style="font-size: 0.7rem; opacity: 0.8; letter-spacing: 0.3em; margin-bottom: 6px;">UNLOCKED</div>
+    <div style="font-weight: 700;">大阪モードを解放しました</div>
+    <div style="font-size: 0.7rem; opacity: 0.7; margin-top: 6px;">設定からONにできます</div>
+  `;
+  document.body.appendChild(toast);
+  // フェードイン
+  requestAnimationFrame(() => { toast.style.opacity = '1'; });
+  // 5秒後にフェードアウト
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => { try { toast.remove(); } catch (e) {} }, 500);
+  }, 5000);
+}
+
 function loadSettings() {
   // 過去に保存されたキャッシュがあれば消去（下位互換）
   try { localStorage.removeItem(SETTINGS_KEY); } catch (e) {}
   // 常にデフォルト値を返す（永続化しない）
-  return { theme: 'default', bgm: false, se: false };
+  return { theme: 'default', bgm: false, se: false, osaka: false };
 }
 
 function saveSettings(s) {
@@ -2423,7 +2524,11 @@ function saveSettings(s) {
 let userSettings = loadSettings();
 
 function applyTheme() {
-  document.body.classList.toggle('theme-japanese', userSettings.theme === 'japanese');
+  // 大阪モードがONなら他のテーマを上書きして大阪背景を適用
+  const useOsaka = !!userSettings.osaka && !!unlocks.osaka;
+  document.body.classList.toggle('theme-osaka', useOsaka);
+  // 通常の和風テーマ：大阪モードがONの場合は無効化
+  document.body.classList.toggle('theme-japanese', !useOsaka && userSettings.theme === 'japanese');
   const sw = document.getElementById('themeSwitch');
   if (sw) sw.classList.toggle('on', userSettings.theme === 'japanese');
 }
@@ -2440,9 +2545,26 @@ function syncBgmSwitches() {
   });
 }
 
+// 現在ONのBGMの audio 要素を返す（大阪モードかどうかで切り替え）
+function getActiveBgmAudio() {
+  const useOsaka = !!userSettings.osaka && !!unlocks.osaka;
+  return document.getElementById(useOsaka ? 'bgmAudioOsaka' : 'bgmAudio');
+}
+
+// 非アクティブ側のBGM（切替時の鳴り残し防止用）
+function getInactiveBgmAudio() {
+  const useOsaka = !!userSettings.osaka && !!unlocks.osaka;
+  return document.getElementById(useOsaka ? 'bgmAudio' : 'bgmAudioOsaka');
+}
+
 function applyBgm(opts) {
   opts = opts || {};
-  const audio = document.getElementById('bgmAudio');
+  const audio = getActiveBgmAudio();
+  // 非アクティブ側は止めておく
+  const other = getInactiveBgmAudio();
+  if (other) {
+    try { other.pause(); other.currentTime = 0; } catch (e) {}
+  }
   syncBgmSwitches();
   if (!audio) return;
   audio.volume = 0.4;
@@ -2459,8 +2581,11 @@ function applyBgm(opts) {
 
 // BGMを停止（設定はONのまま、ただ一時停止する）
 function pauseBgm() {
-  const audio = document.getElementById('bgmAudio');
-  if (audio) audio.pause();
+  // 両方止める（切替直後の鳴り残し対策）
+  const a = document.getElementById('bgmAudio');
+  const b = document.getElementById('bgmAudioOsaka');
+  if (a) a.pause();
+  if (b) b.pause();
 }
 
 // BGMを冒頭から再開（設定がONの場合のみ）
@@ -2483,6 +2608,31 @@ function toggleBgm() {
   userSettings.bgm = !userSettings.bgm;
   saveSettings(userSettings);
   applyBgm();
+}
+
+// 大阪モードトグル：背景とBGMを大阪版に一括切替
+function toggleOsaka() {
+  if (!unlocks.osaka) return; // 解放前は無効
+  userSettings.osaka = !userSettings.osaka;
+  saveSettings(userSettings);
+  // BGM中なら、新しいBGM側を冒頭から鳴らす（途中再生だと違和感がある）
+  applyTheme();
+  applyBgm({ fromStart: true });
+  syncOsakaSwitches();
+}
+
+function syncOsakaSwitches() {
+  document.querySelectorAll('.osaka-switch').forEach(sw => {
+    sw.classList.toggle('on', !!userSettings.osaka);
+  });
+}
+
+// 設定UI内の大阪モード行の表示/非表示を切り替える（解放時のみ表示）
+function syncOsakaUiVisibility() {
+  document.querySelectorAll('[data-osaka-row]').forEach(row => {
+    row.style.display = unlocks.osaka ? '' : 'none';
+  });
+  syncOsakaSwitches();
 }
 
 // ===== SE（効果音）=====
@@ -2545,6 +2695,8 @@ window.addEventListener('DOMContentLoaded', () => {
   // BGMはスイッチ表示のみ反映、再生は最初のユーザー操作後に行う
   syncBgmSwitches();
   syncSeSwitches();
+  // 大阪モードUI（解放されてれば設定に表示）
+  syncOsakaUiVisibility();
   if (userSettings.bgm) {
     const tryPlay = () => {
       applyBgm();
@@ -5263,6 +5415,8 @@ function showRoundEndScreen(title, subtitle, isFinalRound) {
       
       // ランキング登録判定：CPU強・鬼で勝利したらダイアログ表示
       maybeOfferRankingRegistration();
+      // 大阪モード解放判定：上級者+鬼+3R以上で勝利
+      maybeUnlockOsakaMode();
     }
   } else {
     const btn = document.createElement('button');
