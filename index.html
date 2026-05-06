@@ -915,6 +915,23 @@ aside h2 {
 
 .modal-overlay.active { display: flex; }
 
+/* ページフッター（トップページ・ランキング画面のみで使用） */
+.app-footer {
+  margin-top: 32px;
+  padding: 16px 12px 8px;
+  border-top: 1px solid rgba(201, 169, 97, 0.25);
+  font-family: 'Shippori Mincho', serif;
+  font-size: 0.65rem;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+.app-footer .copy {
+  color: var(--gold);
+  margin-bottom: 4px;
+}
+
 /* モーダル表示中は背景のスクロールを止める（モーダル内部のスクロールは独立して動く） */
 body.modal-open {
   overflow: hidden;
@@ -1780,12 +1797,17 @@ body.tut-active .action-bar > * {
     <div style="text-align: center; margin-top: 24px;">
       <button onclick="closeRankingScreen()" style="font-size: 0.85rem;">タイトルに戻る</button>
     </div>
+    
+    <footer class="app-footer">
+      <div class="copy">© 2026 金属こいこい｜nachu19・N</div>
+      <div>個人・学習目的での利用はご自由にどうぞ。再配布・商用利用はご遠慮ください。</div>
+    </footer>
   </div>
 </div>
 
 <!-- スタート画面 -->
 <div class="modal-overlay active" id="startScreen" style="background: var(--bg-deep);">
-  <div style="text-align: center; max-width: 500px; width: 90%;">
+  <div style="text-align: center; max-width: 500px; width: 90%; max-height: 95vh; overflow-y: auto; padding: 16px 0;">
     <div style="font-family: 'Shippori Mincho', serif; font-size: 2.5rem; color: var(--gold-bright); letter-spacing: 0.3em; margin-bottom: 8px; font-weight: 700;">
       金 屬 <span style="color: var(--vermilion);">こ い こ い</span>
     </div>
@@ -1836,6 +1858,11 @@ body.tut-active .action-bar > * {
         <div class="expert-toggle-switch osaka-switch" id="osakaSwitch"></div>
       </div>
     </div>
+    
+    <footer class="app-footer">
+      <div class="copy">© 2026 金属こいこい｜nachu19・N</div>
+      <div>個人・学習目的での利用はご自由にどうぞ。再配布・商用利用はご遠慮ください。</div>
+    </footer>
   </div>
 </div>
 
@@ -6709,6 +6736,9 @@ function cpuOniDecideKoikoi(cpu, opp, totalPoints, newRoles) {
   const cpuIdx = (state.players[1] === cpu) ? 1 : 0;
   const oppIdx = 1 - cpuIdx;
   
+  // 注：最終ラウンドで「上がっても負ける」場合の強制こいこいガードは、
+  // 呼び出し元（cpuFinishCaptures）で判定済みなのでここでは扱わない。
+  
   // 「上がる」評価
   const agariCandidate = { type: 'koikoi_decision', willAgari: true };
   // 「こいこい」評価
@@ -7034,8 +7064,31 @@ function cpuCheckRoles() {
   const canAgari = grandTotal >= getAgariMinPoints();
   
   let willAgari;
+  
+  // 最終ラウンド共通ガード：上がっても累計で勝てない場合は強制こいこい。
+  // 「上がって負け確定」は最も避けるべき判断なので、難易度によらず統一処理する。
+  // （引分の場合もこいこい：負けないために逆転を狙う）
+  const isFinalRoundGuard = currentRound >= totalRounds;
+  let forcedKoikoi = false;
+  if (canAgari && isFinalRoundGuard) {
+    const cpuIdxG = 1; // CPUは固定でplayer1
+    const oppIdxG = 0;
+    const myCumG = cumulativeScores[cpuIdxG] || 0;
+    const oppCumG = cumulativeScores[oppIdxG] || 0;
+    const myCumIfAgari = myCumG + grandTotal;
+    if (myCumIfAgari <= oppCumG) {
+      forcedKoikoi = true;
+      const _msg = `${playerNames[1]}（最終R累計${myCumG}vs${oppCumG}・上がっても${myCumIfAgari}vs${oppCumG}）→ 上がっても負けるため強制こいこい`;
+      log(_msg);
+      console.log('[CPU思考]', _msg);
+    }
+  }
+  
   if (!canAgari) {
     // 閾値未満は強制こいこい
+    willAgari = false;
+  } else if (forcedKoikoi) {
+    // 最終Rで上がっても負ける → 強制こいこい
     willAgari = false;
   } else if (cpuUsesMc()) {
     // 鬼 or 強(MC): モンテカルロでこいこい判断
