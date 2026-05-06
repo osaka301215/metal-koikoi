@@ -2263,7 +2263,7 @@ const ROLES = [
   { id: 'duralumin',     name: 'ジュラルミン',      elements: ['Al','Cu','Mg'], points: 5, formula: 'Al + Cu + Mg' },
   { id: 'fudoutai',      name: '不動態',            elements: ['Fe','Al','Cr','Ni'], points: 7, formula: 'Fe + Al + Cr + Ni' },
   { id: 'ammonia',       name: 'アンモニア錯体',    elements: ['Cu','Ag','Zn'], points: 5, formula: 'Cu + Ag + Zn' },
-  { id: 'flame',         name: '炎色反応',          elements: ['Li','Na','K','Cu','Ca','Ba'], points: 5, formula: '4つで5点・全6つで10点', extensible: true, completePoints: 10, minToComplete: 4 },
+  { id: 'flame',         name: '炎色反応',          elements: ['Li','Na','K','Cu','Ca','Ba'], points: 5, formula: '4枚で5点・6枚で10点', extensible: true, completePoints: 10, minToComplete: 4 },
   { id: 'copper_alloy',  name: '銅合金',            elements: ['Cu','Zn','Sn','Ni'], points: 7, formula: 'Cu + Zn + Sn + Ni' },
   { id: 'amphoteric',    name: '両性金属',          elements: ['Al','Zn','Sn','Pb'], points: 7, formula: 'Al + Zn + Sn + Pb' },
   { id: 'noble',         name: '貴金属',            elements: ['Au','Pt','Ag'], points: 5, formula: 'Au + Pt + Ag' },
@@ -7334,12 +7334,25 @@ function renderRoleList() {
     const points = role.extensible 
       ? `${role.points}-${role.completePoints}`
       : role.points;
+    
+    // 札数情報（上級者モードでも表示する：何枚で何点か）
+    // - 炎色反応（拡張可）：「4枚で5点・6枚で10点」
+    // - それ以外：「○枚で○点」
+    let cardInfo;
+    if (role.extensible) {
+      cardInfo = `${role.minToComplete || role.elements.length}枚で${role.points}点・${role.elements.length}枚で${role.completePoints}点`;
+    } else {
+      cardInfo = `${role.elements.length}枚で${role.points}点`;
+    }
+    
     // 上級者モード：完成済みでない役の元素式は伏せる
-    const formula = (expertMode && !isCompleted) ? '？？？' : role.formula;
+    // ただし札数情報（何枚で何点か）は常に表示する
+    const formulaText = (expertMode && !isCompleted) ? cardInfo : role.formula;
+    
     div.innerHTML = `
       <div>
         <div class="role-name">${role.name}</div>
-        <span class="role-formula">${formula}</span>
+        <span class="role-formula">${formulaText}</span>
       </div>
       <div class="role-points">${points}</div>
     `;
