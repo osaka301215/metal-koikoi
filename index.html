@@ -2724,6 +2724,8 @@ window.addEventListener('DOMContentLoaded', () => {
   syncSeSwitches();
   // 大阪モードUI（解放されてれば設定に表示）
   syncOsakaUiVisibility();
+  // body.modal-open の初期状態を同期（最初は startScreen のみが active なので外れる）
+  syncBodyModalOpen();
   if (userSettings.bgm) {
     const tryPlay = () => {
       applyBgm();
@@ -2984,6 +2986,7 @@ function closeRankingScreen() {
   document.getElementById('startScreen').classList.add('active');
   // トップページに戻る時はBGMを冒頭から再開（メニュー戻りと統一）
   restartBgm();
+  syncBodyModalOpen();
 }
 
 function switchRankingTab(difficulty) {
@@ -3147,6 +3150,7 @@ function closePvpSetup() {
   document.getElementById('startScreen').classList.add('active');
   // トップページに戻る時はBGMを冒頭から
   restartBgm();
+  syncBodyModalOpen();
 }
 
 // 2人対戦ゲーム開始
@@ -3173,6 +3177,7 @@ function closeCpuSetup() {
   document.getElementById('startScreen').classList.add('active');
   // トップページに戻る時はBGMを冒頭から
   restartBgm();
+  syncBodyModalOpen();
 }
 
 function startCpuGame(difficulty) {
@@ -3206,6 +3211,7 @@ function closeOnlineSetup() {
   document.getElementById('startScreen').classList.add('active');
   // トップページに戻る時はBGMを冒頭から
   restartBgm();
+  syncBodyModalOpen();
 }
 
 // オンライン用ラウンド数選択画面（ホストのみ）
@@ -3684,6 +3690,15 @@ function startGame(mode) {
   document.getElementById('pvpSetupScreen').classList.remove('active');
   document.getElementById('cpuSetupScreen').classList.remove('active');
   
+  // 念のためゲームに関係するモーダルもすべて閉じる（前ゲームの残骸対策）
+  ['endModal', 'placeModal', 'roleModal', 'rematchSetupScreen',
+   'rankingRegisterOverlay', 'rankingScreen'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  // body.modal-open を実際のDOMと同期して背景スクロールを復元
+  syncBodyModalOpen();
+  
   // 視点切替ボタンは PvP モードのみ表示（現在 PvP は非表示メニューだが将来の復活時のため）
   const vpBtn = document.getElementById('viewpointBtn');
   if (vpBtn) {
@@ -3953,6 +3968,8 @@ function backToMenu() {
   restartBgm();
   // 鳴っているSE（勝敗ジングル等）も止める
   stopAllSE();
+  // body.modal-open を実際のDOMと同期
+  syncBodyModalOpen();
 }
 
 // 前ラウンドの勝者（先攻決定用）
@@ -7683,8 +7700,40 @@ function log(msg) {
 
 // モーダル表示中は背景スクロールを抑止する。
 // 複数モーダルが同時に開くことがあるので、開いている数を数えて最後の1つが閉じたときだけ解除。
+// 「画面そのもの」として使われている modal-overlay の ID 一覧。
+// これらは背景の上に重ねるのではなく、メイン画面と排他的に表示されるため、
+// body.modal-open のスクロールロック対象から除外する。
+const _SCREEN_OVERLAY_IDS = new Set([
+  'startScreen',
+  'pvpSetupScreen',
+  'cpuSetupScreen',
+  'onlineSetupScreen',
+  'onlineRoundSelectScreen',
+  'roomWaitScreen',
+  'roomJoinScreen',
+  'rematchSetupScreen',
+  'rankingScreen',
+]);
+
+// 「重ねるタイプの」アクティブモーダルの数を返す。
+// 画面そのもの（startScreen等）はカウントしない。
 function _activeModalCount() {
-  return document.querySelectorAll('.modal-overlay.active').length;
+  let count = 0;
+  document.querySelectorAll('.modal-overlay.active').forEach(el => {
+    if (!_SCREEN_OVERLAY_IDS.has(el.id)) count++;
+  });
+  return count;
+}
+
+// body.modal-open の状態を実際の DOM と同期する。
+// モーダルの開閉が classList 直接操作でも行われるため、
+// 残骸が残らないよう要所で呼び出す。
+function syncBodyModalOpen() {
+  if (_activeModalCount() > 0) {
+    document.body.classList.add('modal-open');
+  } else {
+    document.body.classList.remove('modal-open');
+  }
 }
 
 function showModal(id) {
@@ -7698,8 +7747,10 @@ function showModal(id) {
 function hideModal(id) {
   const el = document.getElementById(id);
   if (!el) return;
-  if (!el.classList.contains('active')) return;
-  el.classList.remove('active');
+  // 既に inactive でも、body.modal-open の状態を最新化する（残骸対策）
+  if (el.classList.contains('active')) {
+    el.classList.remove('active');
+  }
   if (_activeModalCount() === 0) {
     document.body.classList.remove('modal-open');
   }
@@ -7775,6 +7826,8 @@ const tutorial = {
       const el = document.getElementById(id);
       if (el) el.classList.remove('active');
     });
+    // body.modal-open を実際の状態に同期（残骸対策）
+    syncBodyModalOpen();
 
     this.active = true;
     this.currentStepIndex = 0;
@@ -7857,6 +7910,9 @@ const tutorial = {
       const start = document.getElementById('startScreen');
       if (start) start.classList.add('active');
     }
+    
+    // チュートリアル中に showModal で付いた body.modal-open を解除
+    syncBodyModalOpen();
   },
 
   // ----------------- ステップ進行 -----------------
@@ -7902,6 +7958,9 @@ const tutorial = {
     });
     // モーダル凍結クラスもクリア
     document.body.classList.remove('tut-modal-frozen');
+    // body.modal-open を最新DOMと同期（次のステップで openPlaceModal される場合は
+    // showModal が再度付け直すので問題ない）
+    syncBodyModalOpen();
 
     // 盤面を仕込む
     if (step.setup) {
