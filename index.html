@@ -677,14 +677,15 @@ aside h2 {
 /* ランキング画面 */
 .ranking-tabs {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: center;
   margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 .ranking-tab {
-  padding: 8px 28px;
-  font-size: 0.95rem;
-  letter-spacing: 0.3em;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  letter-spacing: 0.2em;
   font-family: 'Shippori Mincho', serif;
   background: var(--bg-mid);
   color: var(--gold);
@@ -692,6 +693,7 @@ aside h2 {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s;
+  white-space: nowrap;
 }
 .ranking-tab:hover {
   background: rgba(201, 169, 97, 0.1);
@@ -1719,13 +1721,15 @@ body.tut-active .action-bar > * {
       LEADERBOARD · TOP 10
     </div>
     <div style="font-size: 0.75rem; color: var(--bg-card); opacity: 0.7; text-align: center; margin-bottom: 24px; letter-spacing: 0.05em;">
-      ※CPU戦・5ラウンド以上・強か鬼への勝利で記録されます。
+      ※CPU戦・5ラウンド以上・強か鬼への勝利で記録されます。上級者モードでの勝利は別タブに記録されます。
     </div>
     
     <!-- 難度タブ -->
     <div class="ranking-tabs">
       <button class="ranking-tab active" data-diff="strong" onclick="switchRankingTab('strong')">強</button>
+      <button class="ranking-tab" data-diff="strong_expert" onclick="switchRankingTab('strong_expert')">強・上級</button>
       <button class="ranking-tab" data-diff="oni" onclick="switchRankingTab('oni')">鬼</button>
+      <button class="ranking-tab" data-diff="oni_expert" onclick="switchRankingTab('oni_expert')">鬼・上級</button>
     </div>
     
     <!-- ハイスコア & 平均を並べて表示 -->
@@ -2550,13 +2554,28 @@ window.addEventListener('DOMContentLoaded', () => {
 // ============================================================
 // Firebase Realtime Database のパス構造:
 //   rankings/
-//     strong/  ← CPU強モードでの勝利記録
-//       <pushId>: { initials, score, average, maxRound, totalScore, rounds, ts }
-//     oni/     ← CPU鬼モードでの勝利記録
+//     strong/         ← CPU強モード（通常）での勝利記録
+//     strong_expert/  ← CPU強モード（上級者）での勝利記録
+//     oni/            ← CPU鬼モード（通常）での勝利記録
+//     oni_expert/     ← CPU鬼モード（上級者）での勝利記録
 //       <pushId>: { initials, score, average, maxRound, totalScore, rounds, ts }
 //
 // 「ハイスコア」と「平均」は同じレコード内の別フィールド。
 // 表示時にそれぞれソートして使う。
+
+// 難度キー（cpuDifficulty + expertMode）をランキングのパスキーに変換
+function getRankingDifficultyKey(baseDifficulty, isExpert) {
+  if (baseDifficulty !== 'strong' && baseDifficulty !== 'oni') return null;
+  return isExpert ? `${baseDifficulty}_expert` : baseDifficulty;
+}
+
+// ランキング難度キー → 表示ラベル
+const RANKING_DIFFICULTY_LABEL = {
+  strong:        '強',
+  strong_expert: '強・上級',
+  oni:           '鬼',
+  oni_expert:    '鬼・上級',
+};
 
 const RANKING_TOP_N = 10;
 const INITIALS_KEY = 'metalKoikoiInitials';
@@ -2601,7 +2620,7 @@ function maybeOfferRankingRegistration() {
   // 既存のendModalの上に重ねるので、少し遅延させる
   setTimeout(() => {
     showRankingRegisterDialog({
-      difficulty: cpuDifficulty,
+      difficulty: getRankingDifficultyKey(cpuDifficulty, expertMode),
       score: maxRound,        // 1ゲームハイスコア = ラウンド内最高得点
       average: average,        // 勝利時平均 = 総得点 / ラウンド数
       maxRound: maxRound,
@@ -2626,7 +2645,7 @@ function showRankingRegisterDialog(record) {
   
   // 内訳表示
   const summary = document.getElementById('rankingRegisterSummary');
-  const diffLabel = record.difficulty === 'oni' ? '鬼' : '強';
+  const diffLabel = RANKING_DIFFICULTY_LABEL[record.difficulty] || record.difficulty;
   if (summary) {
     summary.innerHTML = 
       `<div style="margin-bottom: 8px;">難度：<span style="color: var(--gold-bright); font-weight: 700;">${diffLabel}</span> で勝利</div>` +
